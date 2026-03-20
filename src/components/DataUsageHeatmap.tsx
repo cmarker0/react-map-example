@@ -59,9 +59,9 @@ const maxUsage = Math.max(...usageValues);
 
 const colorScale = scaleLinear<string>()
   .domain([minUsage, maxUsage])
-  .range(["#b7d8b7", "#1a7a1a"]);
+  .range(["#1a4d3a", "#00f597"]);
 
-const GREY = "#4a4a4a";
+const GREY = "#495869";
 const STROKE_COLOR = "#2a2a2a";
 
 interface TooltipState {
