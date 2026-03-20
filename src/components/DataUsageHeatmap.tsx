@@ -5,31 +5,55 @@ import { ComposableMap, Geographies, Geography, Graticule, Sphere } from "react-
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
 // Top 20 countries by mobile data usage (GB per user per month, 2024–2025 estimates)
-// ISO-3166-1 numeric codes used by topojson world-atlas
-const TOP_10_DATA_USAGE: Record<string, { name: string; usage: number }> = {
-  "682": { name: "Saudi Arabia", usage: 46.2 },
-  "784": { name: "United Arab Emirates", usage: 42.5 },
-  "410": { name: "South Korea", usage: 38.1 },
-  "356": { name: "India", usage: 32.0 },
-  "702": { name: "Singapore", usage: 28.5 },
-  "428": { name: "Latvia", usage: 26.3 },
-  "246": { name: "Finland", usage: 25.1 },
-  "752": { name: "Sweden", usage: 22.8 },
-  "578": { name: "Norway", usage: 21.4 },
-  "208": { name: "Denmark", usage: 20.7 },
-  "156": { name: "China", usage: 20.2 },
-  "840": { name: "United States", usage: 19.5 },
-  "036": { name: "Australia", usage: 18.3 },
-  "300": { name: "Greece", usage: 17.1 },
-  "076": { name: "Brazil", usage: 15.6 },
-  "392": { name: "Japan", usage: 14.2 },
-  "616": { name: "Poland", usage: 13.8 },
-  "250": { name: "France", usage: 13.1 },
-  "276": { name: "Germany", usage: 12.4 },
-  "703": { name: "Slovakia", usage: 11.8 },
+// Keyed by ISO-3166-1 alpha-3 codes
+const DATA_USAGE: Record<string, { name: string; usage: number }> = {
+  SAU: { name: "Saudi Arabia", usage: 46.2 },
+  ARE: { name: "United Arab Emirates", usage: 42.5 },
+  KOR: { name: "South Korea", usage: 38.1 },
+  IND: { name: "India", usage: 32.0 },
+  SGP: { name: "Singapore", usage: 28.5 },
+  LVA: { name: "Latvia", usage: 26.3 },
+  FIN: { name: "Finland", usage: 25.1 },
+  SWE: { name: "Sweden", usage: 22.8 },
+  NOR: { name: "Norway", usage: 21.4 },
+  DNK: { name: "Denmark", usage: 20.7 },
+  CHN: { name: "China", usage: 20.2 },
+  USA: { name: "United States", usage: 19.5 },
+  AUS: { name: "Australia", usage: 18.3 },
+  GRC: { name: "Greece", usage: 17.1 },
+  BRA: { name: "Brazil", usage: 15.6 },
+  JPN: { name: "Japan", usage: 14.2 },
+  POL: { name: "Poland", usage: 13.8 },
+  FRA: { name: "France", usage: 13.1 },
+  DEU: { name: "Germany", usage: 12.4 },
+  SVK: { name: "Slovakia", usage: 11.8 },
 };
 
-const usageValues = Object.values(TOP_10_DATA_USAGE).map((d) => d.usage);
+// Maps topojson numeric geo.id → ISO-3166-1 alpha-3
+const NUMERIC_TO_ISO3: Record<string, string> = {
+  "682": "SAU",
+  "784": "ARE",
+  "410": "KOR",
+  "356": "IND",
+  "702": "SGP",
+  "428": "LVA",
+  "246": "FIN",
+  "752": "SWE",
+  "578": "NOR",
+  "208": "DNK",
+  "156": "CHN",
+  "840": "USA",
+  "036": "AUS",
+  "300": "GRC",
+  "076": "BRA",
+  "392": "JPN",
+  "616": "POL",
+  "250": "FRA",
+  "276": "DEU",
+  "703": "SVK",
+};
+
+const usageValues = Object.values(DATA_USAGE).map((d) => d.usage);
 const minUsage = Math.min(...usageValues);
 const maxUsage = Math.max(...usageValues);
 
@@ -62,7 +86,8 @@ export function DataUsageHeatmap() {
           {({ geographies }) =>
             geographies.map((geo) => {
               const id = geo.id as string;
-              const countryData = TOP_10_DATA_USAGE[id];
+              const iso3 = NUMERIC_TO_ISO3[id];
+              const countryData = iso3 ? DATA_USAGE[iso3] : undefined;
               const fill = countryData ? colorScale(countryData.usage) : GREY;
 
               return (
