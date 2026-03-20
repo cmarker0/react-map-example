@@ -59,7 +59,7 @@ const maxUsage = Math.max(...usageValues);
 
 const colorScale = scaleLinear<string>()
   .domain([minUsage, maxUsage])
-  .range(["#1a4d3a", "#00f597"]);
+  .range(["#495869", "#00f597"]);
 
 const GREY = "#495869";
 const STROKE_COLOR = "#2a2a2a";
