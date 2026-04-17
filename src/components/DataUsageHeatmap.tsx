@@ -1,6 +1,9 @@
-import React from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Globe from "react-globe.gl";
+import type { GlobeMethods } from "react-globe.gl";
+import { feature } from "topojson-client";
+import type { Topology } from "topojson-specification";
 import { scaleLinear } from "d3-scale";
-import { ComposableMap, Geographies, Geography, Graticule, Sphere } from "react-simple-maps";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
@@ -62,98 +65,144 @@ const colorScale = scaleLinear<string>()
   .range(["#495869", "#00f597"]);
 
 const GREY = "#495869";
-const STROKE_COLOR = "#2a2a2a";
 
-interface TooltipState {
-  name: string;
-  usage: number;
-  x: number;
-  y: number;
+// Country centroids [lat, lng] for arc endpoints
+const COORDS: Record<string, [number, number]> = {
+  SAU: [24.7, 45.1],
+  ARE: [24.0, 54.0],
+  KOR: [36.5, 127.8],
+  IND: [20.6, 78.9],
+  SGP: [1.4, 103.8],
+  LVA: [56.9, 24.6],
+  FIN: [61.9, 25.7],
+  SWE: [60.1, 18.6],
+  NOR: [60.5, 8.5],
+  DNK: [56.3, 9.5],
+  CHN: [35.9, 104.2],
+  USA: [37.1, -95.7],
+  AUS: [-25.3, 133.8],
+  GRC: [39.1, 21.8],
+  BRA: [-14.2, -51.9],
+  JPN: [36.2, 138.3],
+  POL: [51.9, 19.1],
+  FRA: [46.2, 2.2],
+  DEU: [51.2, 10.5],
+  SVK: [48.7, 19.7],
+};
+
+interface Arc {
+  startLat: number;
+  startLng: number;
+  endLat: number;
+  endLng: number;
 }
 
+function mkArc(from: string, to: string): Arc {
+  const [startLat, startLng] = COORDS[from]!;
+  const [endLat, endLng] = COORDS[to]!;
+  return { startLat, startLng, endLat, endLng };
+}
+
+const ARCS: Arc[] = [
+  mkArc("SAU", "IND"),
+  mkArc("SAU", "USA"),
+  mkArc("ARE", "SGP"),
+  mkArc("ARE", "IND"),
+  mkArc("KOR", "JPN"),
+  mkArc("KOR", "USA"),
+  mkArc("KOR", "CHN"),
+  mkArc("IND", "SGP"),
+  mkArc("IND", "AUS"),
+  mkArc("CHN", "USA"),
+  mkArc("CHN", "JPN"),
+  mkArc("USA", "BRA"),
+  mkArc("USA", "DEU"),
+  mkArc("USA", "AUS"),
+  mkArc("DEU", "FRA"),
+  mkArc("DEU", "POL"),
+  mkArc("FIN", "SWE"),
+  mkArc("SWE", "NOR"),
+  mkArc("NOR", "DNK"),
+  mkArc("SGP", "AUS"),
+];
+
 export function DataUsageHeatmap() {
-  const [tooltip, setTooltip] = React.useState<TooltipState | null>(null);
+  const globeRef = useRef<GlobeMethods | undefined>(undefined);
+  const [countries, setCountries] = useState<object[]>([]);
+  const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight });
+
+  useEffect(() => {
+    fetch(GEO_URL)
+      .then((r) => r.json())
+      .then((topo: Topology) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const col = feature(topo, (topo as any).objects.countries) as any;
+        setCountries(col.features);
+      });
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => setSize({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const handleGlobeReady = useCallback(() => {
+    const globe = globeRef.current;
+    if (!globe) return;
+    globe.controls().autoRotate = true;
+    globe.controls().autoRotateSpeed = 0.5;
+    globe.pointOfView({ altitude: 2.2 });
+  }, []);
+
+  const getCapColor = useCallback((feat: object) => {
+    const iso3 = NUMERIC_TO_ISO3[(feat as { id: string }).id];
+    const data = iso3 ? DATA_USAGE[iso3] : undefined;
+    return data ? colorScale(data.usage) : GREY;
+  }, []);
+
+  const getAltitude = useCallback((feat: object) => {
+    const iso3 = NUMERIC_TO_ISO3[(feat as { id: string }).id];
+    return iso3 && DATA_USAGE[iso3] ? 0.014 : 0.002;
+  }, []);
+
+  const getLabel = useCallback((feat: object) => {
+    const iso3 = NUMERIC_TO_ISO3[(feat as { id: string }).id];
+    const data = iso3 ? DATA_USAGE[iso3] : undefined;
+    if (!data) return "";
+    return `<div style="background:rgba(7,22,39,0.9);color:#fff;padding:8px 12px;border-radius:6px;font-size:13px;border:1px solid rgba(0,245,151,0.3);pointer-events:none">
+      <strong>${data.name}</strong><br/>${data.usage} GB / user / month
+    </div>`;
+  }, []);
 
   return (
-    <div style={{ width: "100vw", height: "100vh", background: "transparent", position: "relative" }}>
-      <ComposableMap
-        projectionConfig={{ scale: 160 }}
-        style={{ width: "100%", height: "100%", background: "transparent" }}
-      >
-        <Sphere id="sphere" fill="transparent" stroke={STROKE_COLOR} strokeWidth={0.3} />
-        <Graticule stroke={STROKE_COLOR} strokeWidth={0.2} />
-        <Geographies geography={GEO_URL}>
-          {({ geographies }) =>
-            geographies.map((geo) => {
-              const id = geo.id as string;
-              const iso3 = NUMERIC_TO_ISO3[id];
-              const countryData = iso3 ? DATA_USAGE[iso3] : undefined;
-              const fill = countryData ? colorScale(countryData.usage) : GREY;
-
-              return (
-                <Geography
-                  key={geo.rsmKey}
-                  geography={geo}
-                  fill={fill}
-                  stroke={STROKE_COLOR}
-                  strokeWidth={0.4}
-                  style={{
-                    default: { outline: "none" },
-                    hover: {
-                      outline: "none",
-                      fill: countryData ? colorScale(countryData.usage) : "#666",
-                      filter: "brightness(1.2)",
-                    },
-                    pressed: { outline: "none" },
-                  }}
-                  onMouseEnter={(event) => {
-                    if (countryData) {
-                      setTooltip({
-                        name: countryData.name,
-                        usage: countryData.usage,
-                        x: event.clientX,
-                        y: event.clientY,
-                      });
-                    }
-                  }}
-                  onMouseMove={(event) => {
-                    if (countryData) {
-                      setTooltip((prev) =>
-                        prev ? { ...prev, x: event.clientX, y: event.clientY } : null,
-                      );
-                    }
-                  }}
-                  onMouseLeave={() => setTooltip(null)}
-                />
-              );
-            })
-          }
-        </Geographies>
-      </ComposableMap>
-
-      {tooltip && (
-        <div
-          style={{
-            position: "fixed",
-            top: tooltip.y + 12,
-            left: tooltip.x + 12,
-            background: "rgba(10, 20, 10, 0.85)",
-            color: "#e0f0e0",
-            padding: "8px 12px",
-            borderRadius: 6,
-            fontSize: 13,
-            pointerEvents: "none",
-            backdropFilter: "blur(4px)",
-            border: "1px solid rgba(80,160,80,0.4)",
-            zIndex: 10,
-          }}
-        >
-          <strong>{tooltip.name}</strong>
-          <br />
-          {tooltip.usage} GB / user / month
-        </div>
-      )}
-
+    <div style={{ width: "100vw", height: "100vh", background: "#071627", position: "relative" }}>
+      <Globe
+        ref={globeRef}
+        width={size.w}
+        height={size.h}
+        backgroundColor="#071627"
+        globeImageUrl="https://unpkg.com/three-globe/example/img/earth-night.jpg"
+        atmosphereColor="#00f597"
+        atmosphereAltitude={0.15}
+        polygonsData={countries}
+        polygonCapColor={getCapColor}
+        polygonSideColor={() => "#071627"}
+        polygonStrokeColor={() => "#1e3040"}
+        polygonAltitude={getAltitude}
+        polygonLabel={getLabel}
+        arcsData={ARCS}
+        arcStartLat={(d: object) => (d as Arc).startLat}
+        arcStartLng={(d: object) => (d as Arc).startLng}
+        arcEndLat={(d: object) => (d as Arc).endLat}
+        arcEndLng={(d: object) => (d as Arc).endLng}
+        arcColor={() => ["#00f597", "rgba(0,245,151,0.1)"]}
+        arcDashLength={0.4}
+        arcDashGap={0.2}
+        arcDashAnimateTime={2500}
+        arcStroke={0.4}
+        onGlobeReady={handleGlobeReady}
+      />
       <Legend minUsage={minUsage} maxUsage={maxUsage} colorScale={colorScale} />
     </div>
   );
@@ -175,11 +224,11 @@ function Legend({
         position: "absolute",
         bottom: 32,
         left: 32,
-        background: "rgba(10, 20, 10, 0.75)",
+        background: "rgba(7,22,39,0.85)",
         borderRadius: 8,
         padding: "12px 16px",
         backdropFilter: "blur(4px)",
-        border: "1px solid rgba(80,160,80,0.3)",
+        border: "1px solid rgba(0,245,151,0.25)",
         color: "#e0f0e0",
         fontSize: 12,
       }}
@@ -195,7 +244,7 @@ function Legend({
             height: 18,
             background: GREY,
             borderRadius: 3,
-            border: "1px solid #555",
+            border: "1px solid #2a3a4a",
           }}
         />
         <div style={{ width: 12 }} />
