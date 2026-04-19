@@ -6,8 +6,17 @@ import type { Topology } from "topojson-specification";
 import { scaleLinear } from "d3-scale";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
-const BG_COLOR = "#071627";
-const GREY = "#495869";
+
+// Bifrost dark-mode palette — https://bifrost.intility.com/design/colors
+const BG_COLOR     = "#061527"; // --bfc-base        hsl(212,70%,9%)
+const SURFACE      = "#0a1c2e"; // --bfc-base-2       hsl(210,64%,11%)
+const GREY         = "#435469"; // --base-360         hsl(213,22%,34%)
+const STROKE_COLOR = "#223143"; // --base-410         hsl(212,33%,20%)
+const TEXT         = "#f3f3f6"; // --bfc-base-c       hsl(240,14%,96%)
+const MUTED        = "#8997a8"; // --bfc-base-c-2     hsl(212,15%,60%)
+const TEAL         = "#0cf2d7"; // teal-300 / --bfc-theme  hsl(173,90%,50%)
+const PURPLE       = "#ac89ff"; // purple-300 / --bfc-chill hsl(258,100%,77%)
+const PINK         = "#ff6bc3"; // pink-300 / --bfc-attn   hsl(324,100%,71%)
 
 const DATA_USAGE: Record<string, { name: string; usage: number }> = {
   SAU: { name: "Saudi Arabia", usage: 92.4 },
@@ -62,7 +71,7 @@ const maxUsage = Math.max(...usageValues);
 
 const colorScale = scaleLinear<string>()
   .domain([minUsage, maxUsage])
-  .range(["#495869", "#00f597"]);
+  .range([GREY, TEAL]);
 
 // Country centroids [lat, lng] for arc endpoints
 const COORDS: Record<string, [number, number]> = {
@@ -145,9 +154,9 @@ const CALL_ARCS: CallArc[] = [
 ];
 
 const ARC_COLORS: Record<CallArc["type"], [string, string]> = {
-  call: ["#00f597", "rgba(0,245,151,0.05)"],
-  sms:  ["#38bdf8", "rgba(56,189,248,0.05)"],
-  mms:  ["#fb923c", "rgba(251,146,60,0.05)"],
+  call: [TEAL,   "rgba(12,242,215,0.05)"],
+  sms:  [PURPLE, "rgba(172,137,255,0.05)"],
+  mms:  [PINK,   "rgba(255,107,195,0.05)"],
 };
 
 
@@ -165,7 +174,7 @@ function getCallArcColor(d: object): [string, string] {
 
 
 const getSideColor = () => BG_COLOR;
-const getStrokeColor = () => "#1e3040";
+const getStrokeColor = () => STROKE_COLOR;
 const getArcStartLat = (d: object) => (d as CallArc).startLat;
 const getArcStartLng = (d: object) => (d as CallArc).startLng;
 const getArcEndLat = (d: object) => (d as CallArc).endLat;
@@ -247,7 +256,7 @@ export function DataUsageHeatmap() {
         view === "data"
           ? `<strong>${data.name}</strong><br/>${data.usage} GB / user / month`
           : data.name;
-      return `<div style="background:rgba(7,22,39,0.9);color:#fff;padding:8px 12px;border-radius:6px;font-size:13px;border:1px solid rgba(0,245,151,0.25);pointer-events:none">${inner}</div>`;
+      return `<div style="background:rgba(10,28,46,0.92);color:${TEXT};padding:8px 12px;border-radius:6px;font-size:13px;border:1px solid rgba(12,242,215,0.3);pointer-events:none">${inner}</div>`;
     },
     [view],
   );
@@ -263,7 +272,7 @@ export function DataUsageHeatmap() {
         height={size.h}
         backgroundColor={BG_COLOR}
         globeImageUrl="https://unpkg.com/three-globe/example/img/earth-night.jpg"
-        atmosphereColor="#00f597"
+        atmosphereColor={TEAL}
         atmosphereAltitude={0.15}
         polygonsData={countries}
         polygonCapColor={getCapColor}
@@ -312,10 +321,10 @@ const ButtonGroup = memo(function ButtonGroup({
         display: "flex",
         alignItems: "center",
         gap: 4,
-        background: "rgba(7,22,39,0.88)",
+        background: `${SURFACE}dd`,
         borderRadius: 10,
         padding: "5px 6px",
-        border: "1px solid rgba(0,245,151,0.2)",
+        border: `1px solid rgba(12,242,215,0.2)`,
         backdropFilter: "blur(6px)",
         whiteSpace: "nowrap",
       }}
@@ -325,8 +334,8 @@ const ButtonGroup = memo(function ButtonGroup({
           key={v}
           onClick={() => onViewChange(v)}
           style={{
-            background: view === v ? "#00f597" : "transparent",
-            color: view === v ? BG_COLOR : "#8a9bb0",
+            background: view === v ? TEAL : "transparent",
+            color: view === v ? BG_COLOR : MUTED,
             border: "none",
             borderRadius: 6,
             padding: "6px 14px",
@@ -341,10 +350,10 @@ const ButtonGroup = memo(function ButtonGroup({
       ))}
       {view === "data" && (
         <>
-          <div style={{ width: 1, height: 20, background: "rgba(0,245,151,0.2)", margin: "0 4px" }} />
+          <div style={{ width: 1, height: 20, background: "rgba(12,242,215,0.2)", margin: "0 4px" }} />
           <label
             style={{
-              color: "#8a9bb0",
+              color: MUTED,
               fontSize: 13,
               cursor: "pointer",
               userSelect: "none",
@@ -358,7 +367,7 @@ const ButtonGroup = memo(function ButtonGroup({
               type="checkbox"
               checked={includeNorway}
               onChange={(e) => onNorwayChange(e.target.checked)}
-              style={{ accentColor: "#00f597", cursor: "pointer" }}
+              style={{ accentColor: TEAL, cursor: "pointer" }}
             />
             Include Norway
           </label>
@@ -387,10 +396,10 @@ const SpinControl = memo(function SpinControl({
         width: 40,
         height: 40,
         borderRadius: "50%",
-        background: "rgba(7,22,39,0.88)",
-        border: "1px solid rgba(0,245,151,0.2)",
+        background: `${SURFACE}dd`,
+        border: `1px solid rgba(12,242,215,0.2)`,
         backdropFilter: "blur(6px)",
-        color: "#00f597",
+        color: TEAL,
         fontSize: 18,
         cursor: "pointer",
         display: "flex",
@@ -412,12 +421,12 @@ const DataLegend = memo(function DataLegend() {
         position: "absolute",
         bottom: 32,
         left: 32,
-        background: "rgba(7,22,39,0.85)",
+        background: `${SURFACE}dd`,
         borderRadius: 8,
         padding: "12px 16px",
         backdropFilter: "blur(4px)",
-        border: "1px solid rgba(0,245,151,0.25)",
-        color: "#e0f0e0",
+        border: `1px solid rgba(12,242,215,0.2)`,
+        color: TEXT,
         fontSize: 12,
       }}
     >
@@ -425,8 +434,8 @@ const DataLegend = memo(function DataLegend() {
         Data usage (GB/user/month)
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        <span style={{ color: "#888", marginRight: 4 }}>Other</span>
-        <div style={{ width: 18, height: 18, background: GREY, borderRadius: 3, border: "1px solid #2a3a4a" }} />
+        <span style={{ color: MUTED, marginRight: 4 }}>Other</span>
+        <div style={{ width: 18, height: 18, background: GREY, borderRadius: 3, border: `1px solid ${STROKE_COLOR}` }} />
         <div style={{ width: 12 }} />
         {Array.from({ length: steps }, (_, i) => {
           const value = minUsage + ((maxUsage - minUsage) * i) / (steps - 1);
@@ -434,7 +443,7 @@ const DataLegend = memo(function DataLegend() {
             <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
               <div style={{ width: 28, height: 14, background: colorScale(value), borderRadius: 2 }} />
               {(i === 0 || i === steps - 1) && (
-                <span style={{ marginTop: 3, color: "#aaa" }}>{value.toFixed(0)}</span>
+                <span style={{ marginTop: 3, color: MUTED }}>{value.toFixed(0)}</span>
               )}
             </div>
           );
@@ -457,12 +466,12 @@ function CallsLegend({
         position: "absolute",
         bottom: 32,
         left: 32,
-        background: "rgba(7,22,39,0.85)",
+        background: `${SURFACE}dd`,
         borderRadius: 8,
         padding: "12px 16px",
         backdropFilter: "blur(4px)",
-        border: "1px solid rgba(0,245,151,0.25)",
-        color: "#e0f0e0",
+        border: `1px solid rgba(12,242,215,0.2)`,
+        color: TEXT,
         fontSize: 12,
       }}
     >
@@ -493,7 +502,7 @@ function CallsLegend({
             }}
           >
             <div style={{ width: 28, height: 3, background: ARC_COLORS[type][0], borderRadius: 2 }} />
-            <span style={{ color: "#aaa" }}>{label}</span>
+            <span style={{ color: MUTED }}>{label}</span>
           </div>
         );
       })}
