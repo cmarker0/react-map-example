@@ -93,56 +93,55 @@ interface CallArc {
   startLng: number;
   endLat: number;
   endLng: number;
-  volume: number;
   type: "call" | "sms" | "mms";
 }
 
-function mkArc(from: string, to: string, volume: number, type: CallArc["type"]): CallArc {
+function mkArc(from: string, to: string, type: CallArc["type"]): CallArc {
   const [startLat, startLng] = COORDS[from]!;
   const [endLat, endLng] = COORDS[to]!;
-  return { startLat, startLng, endLat, endLng, volume, type };
+  return { startLat, startLng, endLat, endLng, type };
 }
 
 const CALL_ARCS: CallArc[] = [
   // Voice calls
-  mkArc("ARE", "IND", 9200, "call"),
-  mkArc("USA", "IND", 8500, "call"),
-  mkArc("SAU", "IND", 7800, "call"),
-  mkArc("USA", "CHN", 6200, "call"),
-  mkArc("DEU", "FRA", 5100, "call"),
-  mkArc("NOR", "SWE", 4800, "call"),
-  mkArc("CHN", "KOR", 3500, "call"),
-  mkArc("CHN", "JPN", 4200, "call"),
-  mkArc("FIN", "SWE", 4200, "call"),
-  mkArc("SWE", "DNK", 3900, "call"),
-  mkArc("BRA", "USA", 3200, "call"),
-  mkArc("KOR", "USA", 3100, "call"),
-  mkArc("IND", "SGP", 2800, "call"),
-  mkArc("GRC", "DEU", 2400, "call"),
-  mkArc("AUS", "SGP", 2100, "call"),
+  mkArc("ARE", "IND", "call"),
+  mkArc("USA", "IND", "call"),
+  mkArc("SAU", "IND", "call"),
+  mkArc("USA", "CHN", "call"),
+  mkArc("DEU", "FRA", "call"),
+  mkArc("NOR", "SWE", "call"),
+  mkArc("CHN", "KOR", "call"),
+  mkArc("CHN", "JPN", "call"),
+  mkArc("FIN", "SWE", "call"),
+  mkArc("SWE", "DNK", "call"),
+  mkArc("BRA", "USA", "call"),
+  mkArc("KOR", "USA", "call"),
+  mkArc("IND", "SGP", "call"),
+  mkArc("GRC", "DEU", "call"),
+  mkArc("AUS", "SGP", "call"),
   // SMS
-  mkArc("ARE", "IND", 6100, "sms"),
-  mkArc("NOR", "SWE", 5600, "sms"),
-  mkArc("USA", "IND", 5200, "sms"),
-  mkArc("FIN", "SWE", 5100, "sms"),
-  mkArc("KOR", "JPN", 4800, "sms"),
-  mkArc("IND", "SAU", 4100, "sms"),
-  mkArc("DEU", "FRA", 3800, "sms"),
-  mkArc("CHN", "KOR", 3600, "sms"),
-  mkArc("CHN", "USA", 3100, "sms"),
-  mkArc("SGP", "AUS", 2900, "sms"),
-  mkArc("DEU", "POL", 2800, "sms"),
-  mkArc("USA", "BRA", 2400, "sms"),
+  mkArc("ARE", "IND", "sms"),
+  mkArc("NOR", "SWE", "sms"),
+  mkArc("USA", "IND", "sms"),
+  mkArc("FIN", "SWE", "sms"),
+  mkArc("KOR", "JPN", "sms"),
+  mkArc("IND", "SAU", "sms"),
+  mkArc("DEU", "FRA", "sms"),
+  mkArc("CHN", "KOR", "sms"),
+  mkArc("CHN", "USA", "sms"),
+  mkArc("SGP", "AUS", "sms"),
+  mkArc("DEU", "POL", "sms"),
+  mkArc("USA", "BRA", "sms"),
   // MMS
-  mkArc("IND", "ARE", 2400, "mms"),
-  mkArc("NOR", "SWE", 2100, "mms"),
-  mkArc("KOR", "USA", 1800, "mms"),
-  mkArc("SWE", "DNK", 1700, "mms"),
-  mkArc("JPN", "KOR", 1500, "mms"),
-  mkArc("CHN", "JPN", 1300, "mms"),
-  mkArc("USA", "CHN", 1200, "mms"),
-  mkArc("AUS", "SGP", 1100, "mms"),
-  mkArc("DEU", "POL", 900, "mms"),
+  mkArc("IND", "ARE", "mms"),
+  mkArc("NOR", "SWE", "mms"),
+  mkArc("KOR", "USA", "mms"),
+  mkArc("SWE", "DNK", "mms"),
+  mkArc("JPN", "KOR", "mms"),
+  mkArc("CHN", "JPN", "mms"),
+  mkArc("USA", "CHN", "mms"),
+  mkArc("AUS", "SGP", "mms"),
+  mkArc("DEU", "POL", "mms"),
 ];
 
 const ARC_COLORS: Record<CallArc["type"], [string, string]> = {
@@ -151,7 +150,6 @@ const ARC_COLORS: Record<CallArc["type"], [string, string]> = {
   mms:  ["#fb923c", "rgba(251,146,60,0.05)"],
 };
 
-const MAX_CALL_VOLUME = Math.max(...CALL_ARCS.map((a) => a.volume));
 
 function featIso3(feat: object): string | undefined {
   return NUMERIC_TO_ISO3[(feat as { id: string }).id];
@@ -165,14 +163,6 @@ function getCallArcColor(d: object): [string, string] {
   return ARC_COLORS[(d as CallArc).type];
 }
 
-function getCallArcStroke(d: object): number {
-  return 0.15 + ((d as CallArc).volume / MAX_CALL_VOLUME) * 1.0;
-}
-
-function getCallArcAnimateTime(d: object): number {
-  const times: Record<CallArc["type"], number> = { call: 3000, sms: 1500, mms: 2000 };
-  return times[(d as CallArc).type];
-}
 
 const getSideColor = () => BG_COLOR;
 const getStrokeColor = () => "#1e3040";
@@ -265,8 +255,8 @@ export function DataUsageHeatmap() {
         arcColor={getCallArcColor}
         arcDashLength={0.4}
         arcDashGap={0.15}
-        arcDashAnimateTime={getCallArcAnimateTime}
-        arcStroke={getCallArcStroke}
+        arcDashAnimateTime={2000}
+        arcStroke={0.5}
         onGlobeReady={handleGlobeReady}
       />
 
