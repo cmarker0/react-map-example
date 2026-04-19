@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import Globe from "react-globe.gl";
 import type { GlobeMethods } from "react-globe.gl";
 import { feature } from "topojson-client";
@@ -7,8 +7,6 @@ import { scaleLinear } from "d3-scale";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
-// Top 20 countries by mobile data usage (GB per user per month, 2024–2025 estimates)
-// Keyed by ISO-3166-1 alpha-3 codes
 const DATA_USAGE: Record<string, { name: string; usage: number }> = {
   SAU: { name: "Saudi Arabia", usage: 92.4 },
   ARE: { name: "United Arab Emirates", usage: 85.0 },
@@ -32,7 +30,7 @@ const DATA_USAGE: Record<string, { name: string; usage: number }> = {
   SVK: { name: "Slovakia", usage: 2.3 },
 };
 
-// Maps topojson numeric geo.id → ISO-3166-1 alpha-3
+// topojson numeric geo.id → ISO-3166-1 alpha-3
 const NUMERIC_TO_ISO3: Record<string, string> = {
   "682": "SAU",
   "784": "ARE",
@@ -65,6 +63,7 @@ const colorScale = scaleLinear<string>()
   .range(["#495869", "#00f597"]);
 
 const GREY = "#495869";
+const BG_COLOR = "#071627";
 
 // Country centroids [lat, lng] for arc endpoints
 const COORDS: Record<string, [number, number]> = {
@@ -126,6 +125,38 @@ const ARCS: Arc[] = [
   mkArc("SGP", "AUS"),
 ];
 
+function featIso3(feat: object): string | undefined {
+  return NUMERIC_TO_ISO3[(feat as { id: string }).id];
+}
+
+function getCapColor(feat: object): string {
+  const iso3 = featIso3(feat);
+  const data = iso3 ? DATA_USAGE[iso3] : undefined;
+  return data ? colorScale(data.usage) : GREY;
+}
+
+function getAltitude(feat: object): number {
+  const iso3 = featIso3(feat);
+  return iso3 && DATA_USAGE[iso3] ? 0.014 : 0.002;
+}
+
+function getLabel(feat: object): string {
+  const iso3 = featIso3(feat);
+  const data = iso3 ? DATA_USAGE[iso3] : undefined;
+  if (!data) return "";
+  return `<div style="background:rgba(7,22,39,0.9);color:#fff;padding:8px 12px;border-radius:6px;font-size:13px;border:1px solid rgba(0,245,151,0.3);pointer-events:none">
+    <strong>${data.name}</strong><br/>${data.usage} GB / user / month
+  </div>`;
+}
+
+const getSideColor = () => BG_COLOR;
+const getStrokeColor = () => "#1e3040";
+const getArcColor = () => ["#00f597", "rgba(0,245,151,0.1)"];
+const getArcStartLat = (d: object) => (d as Arc).startLat;
+const getArcStartLng = (d: object) => (d as Arc).startLng;
+const getArcEndLat = (d: object) => (d as Arc).endLat;
+const getArcEndLng = (d: object) => (d as Arc).endLng;
+
 export function DataUsageHeatmap() {
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const [countries, setCountries] = useState<object[]>([]);
@@ -147,56 +178,36 @@ export function DataUsageHeatmap() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  const handleGlobeReady = useCallback(() => {
+  function handleGlobeReady() {
     const globe = globeRef.current;
     if (!globe) return;
     globe.controls().autoRotate = true;
     globe.controls().autoRotateSpeed = 0.5;
     globe.pointOfView({ altitude: 2.2 });
-  }, []);
-
-  const getCapColor = useCallback((feat: object) => {
-    const iso3 = NUMERIC_TO_ISO3[(feat as { id: string }).id];
-    const data = iso3 ? DATA_USAGE[iso3] : undefined;
-    return data ? colorScale(data.usage) : GREY;
-  }, []);
-
-  const getAltitude = useCallback((feat: object) => {
-    const iso3 = NUMERIC_TO_ISO3[(feat as { id: string }).id];
-    return iso3 && DATA_USAGE[iso3] ? 0.014 : 0.002;
-  }, []);
-
-  const getLabel = useCallback((feat: object) => {
-    const iso3 = NUMERIC_TO_ISO3[(feat as { id: string }).id];
-    const data = iso3 ? DATA_USAGE[iso3] : undefined;
-    if (!data) return "";
-    return `<div style="background:rgba(7,22,39,0.9);color:#fff;padding:8px 12px;border-radius:6px;font-size:13px;border:1px solid rgba(0,245,151,0.3);pointer-events:none">
-      <strong>${data.name}</strong><br/>${data.usage} GB / user / month
-    </div>`;
-  }, []);
+  }
 
   return (
-    <div style={{ width: "100vw", height: "100vh", background: "#071627", position: "relative" }}>
+    <div style={{ width: "100vw", height: "100vh", background: BG_COLOR, position: "relative" }}>
       <Globe
         ref={globeRef}
         width={size.w}
         height={size.h}
-        backgroundColor="#071627"
+        backgroundColor={BG_COLOR}
         globeImageUrl="https://unpkg.com/three-globe/example/img/earth-night.jpg"
         atmosphereColor="#00f597"
         atmosphereAltitude={0.15}
         polygonsData={countries}
         polygonCapColor={getCapColor}
-        polygonSideColor={() => "#071627"}
-        polygonStrokeColor={() => "#1e3040"}
+        polygonSideColor={getSideColor}
+        polygonStrokeColor={getStrokeColor}
         polygonAltitude={getAltitude}
         polygonLabel={getLabel}
         arcsData={ARCS}
-        arcStartLat={(d: object) => (d as Arc).startLat}
-        arcStartLng={(d: object) => (d as Arc).startLng}
-        arcEndLat={(d: object) => (d as Arc).endLat}
-        arcEndLng={(d: object) => (d as Arc).endLng}
-        arcColor={() => ["#00f597", "rgba(0,245,151,0.1)"]}
+        arcStartLat={getArcStartLat}
+        arcStartLng={getArcStartLng}
+        arcEndLat={getArcEndLat}
+        arcEndLng={getArcEndLng}
+        arcColor={getArcColor}
         arcDashLength={0.4}
         arcDashGap={0.2}
         arcDashAnimateTime={2500}
@@ -208,7 +219,7 @@ export function DataUsageHeatmap() {
   );
 }
 
-function Legend({
+const Legend = memo(function Legend({
   minUsage,
   maxUsage,
   colorScale,
@@ -269,4 +280,4 @@ function Legend({
       </div>
     </div>
   );
-}
+});
