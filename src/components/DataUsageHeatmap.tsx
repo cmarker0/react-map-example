@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Globe from "react-globe.gl";
 import type { GlobeMethods } from "react-globe.gl";
 import { feature } from "topojson-client";
@@ -179,6 +179,8 @@ export function DataUsageHeatmap() {
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight });
   const [view, setView] = useState<ViewType>("data");
   const [includeNorway, setIncludeNorway] = useState(true);
+  const [spinning, setSpinning] = useState(true);
+  const [hiddenTypes, setHiddenTypes] = useState<Set<CallArc["type"]>>(new Set());
 
   useEffect(() => {
     fetch(GEO_URL)
@@ -199,10 +201,31 @@ export function DataUsageHeatmap() {
   function handleGlobeReady() {
     const globe = globeRef.current;
     if (!globe) return;
-    globe.controls().autoRotate = true;
+    globe.controls().autoRotate = spinning;
     globe.controls().autoRotateSpeed = 0.5;
     globe.pointOfView({ altitude: 2.2 });
   }
+
+  function toggleSpin() {
+    setSpinning((prev) => {
+      if (globeRef.current) globeRef.current.controls().autoRotate = !prev;
+      return !prev;
+    });
+  }
+
+  function toggleType(type: CallArc["type"]) {
+    setHiddenTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  }
+
+  const visibleArcs = useMemo(
+    () => (view === "calls" ? CALL_ARCS.filter((a) => !hiddenTypes.has(a.type)) : []),
+    [view, hiddenTypes],
+  );
 
   const getCapColor = useCallback(
     (feat: object) => {
@@ -232,6 +255,7 @@ export function DataUsageHeatmap() {
   return (
     <div style={{ width: "100vw", height: "100vh", background: BG_COLOR, position: "relative" }}>
       <ButtonGroup view={view} onViewChange={setView} includeNorway={includeNorway} onNorwayChange={setIncludeNorway} />
+      <SpinControl spinning={spinning} onToggle={toggleSpin} />
 
       <Globe
         ref={globeRef}
@@ -247,20 +271,21 @@ export function DataUsageHeatmap() {
         polygonStrokeColor={getStrokeColor}
         polygonAltitude={getAltitude}
         polygonLabel={getLabel}
-        arcsData={view === "calls" ? CALL_ARCS : []}
+        arcsData={visibleArcs}
         arcStartLat={getArcStartLat}
         arcStartLng={getArcStartLng}
         arcEndLat={getArcEndLat}
         arcEndLng={getArcEndLng}
         arcColor={getCallArcColor}
-        arcDashLength={0.4}
+        arcAltitude={0.12}
+        arcDashLength={0.3}
         arcDashGap={0.15}
-        arcDashAnimateTime={2000}
+        arcDashAnimateTime={5000}
         arcStroke={0.5}
         onGlobeReady={handleGlobeReady}
       />
 
-      {view === "data" ? <DataLegend /> : <CallsLegend />}
+      {view === "data" ? <DataLegend /> : <CallsLegend hiddenTypes={hiddenTypes} onToggle={toggleType} />}
     </div>
   );
 }
@@ -343,6 +368,42 @@ const ButtonGroup = memo(function ButtonGroup({
   );
 });
 
+const SpinControl = memo(function SpinControl({
+  spinning,
+  onToggle,
+}: {
+  spinning: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      title={spinning ? "Pause rotation" : "Resume rotation"}
+      style={{
+        position: "absolute",
+        bottom: 32,
+        right: 32,
+        zIndex: 10,
+        width: 40,
+        height: 40,
+        borderRadius: "50%",
+        background: "rgba(7,22,39,0.88)",
+        border: "1px solid rgba(0,245,151,0.2)",
+        backdropFilter: "blur(6px)",
+        color: "#00f597",
+        fontSize: 18,
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        lineHeight: 1,
+      }}
+    >
+      {spinning ? "⏸" : "▶"}
+    </button>
+  );
+});
+
 const DataLegend = memo(function DataLegend() {
   const steps = 6;
   return (
@@ -383,7 +444,13 @@ const DataLegend = memo(function DataLegend() {
   );
 });
 
-const CallsLegend = memo(function CallsLegend() {
+function CallsLegend({
+  hiddenTypes,
+  onToggle,
+}: {
+  hiddenTypes: Set<CallArc["type"]>;
+  onToggle: (type: CallArc["type"]) => void;
+}) {
   return (
     <div
       style={{
@@ -408,13 +475,28 @@ const CallsLegend = memo(function CallsLegend() {
           { type: "sms",  label: "SMS" },
           { type: "mms",  label: "MMS" },
         ] as { type: CallArc["type"]; label: string }[]
-      ).map(({ type, label }) => (
-        <div key={type} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-          <div style={{ width: 28, height: 3, background: ARC_COLORS[type][0], borderRadius: 2 }} />
-          <span style={{ color: "#aaa" }}>{label}</span>
-        </div>
-      ))}
-      <div style={{ marginTop: 6, color: "#666", fontSize: 11 }}>Arc thickness = volume</div>
+      ).map(({ type, label }) => {
+        const hidden = hiddenTypes.has(type);
+        return (
+          <div
+            key={type}
+            onClick={() => onToggle(type)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 5,
+              cursor: "pointer",
+              opacity: hidden ? 0.35 : 1,
+              transition: "opacity 0.15s",
+              userSelect: "none",
+            }}
+          >
+            <div style={{ width: 28, height: 3, background: ARC_COLORS[type][0], borderRadius: 2 }} />
+            <span style={{ color: "#aaa" }}>{label}</span>
+          </div>
+        );
+      })}
     </div>
   );
-});
+}
