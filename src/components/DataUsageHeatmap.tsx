@@ -4,21 +4,24 @@ import type { GlobeMethods } from "react-globe.gl";
 import { feature } from "topojson-client";
 import type { Topology } from "topojson-specification";
 import { scaleLinear } from "d3-scale";
+import Button from "@intility/bifrost-react/Button";
+import Dropdown from "@intility/bifrost-react/Dropdown";
+import Switch from "@intility/bifrost-react/Switch";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faGear, faPause, faPlay, faShuffle } from "@fortawesome/free-solid-svg-icons";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
-// Bifrost dark-mode palette — https://bifrost.intility.com/design/colors
-const BG_COLOR     = "#061527"; // --bfc-base        hsl(212,70%,9%)
-const SURFACE      = "#0a1c2e"; // --bfc-base-2       hsl(210,64%,11%)
-const GREY         = "#435469"; // --base-360         hsl(213,22%,34%)
-const STROKE_COLOR = "#223143"; // --base-410         hsl(212,33%,20%)
-const TEXT         = "#f3f3f6"; // --bfc-base-c       hsl(240,14%,96%)
-const MUTED        = "#8997a8"; // --bfc-base-c-2     hsl(212,15%,60%)
-const TEAL         = "#0cf2d7"; // teal-300 / --bfc-theme  hsl(173,90%,50%)
-const PURPLE       = "#ac89ff"; // purple-300 / --bfc-chill hsl(258,100%,77%)
-const PINK         = "#ff6bc3"; // pink-300 / --bfc-attn   hsl(324,100%,71%)
+// Hex values for WebGL (Globe) — CSS variables used in JSX styles
+const BG_COLOR     = "#061527"; // var(--bfc-base)
+const GREY         = "#435469"; // var(--bfc-base-disabled)
+const STROKE_COLOR = "#223143"; // var(--bfc-base-dimmed)
+const TEAL         = "#0cf2d7"; // var(--bfc-theme)
+const SUCCESS      = "hsl(157, 100%, 48%)"; // var(--bfc-success) — heatmap max
+const PURPLE       = "#ac89ff"; // var(--bfc-chill)
+const PINK         = "#ff6bc3"; // var(--bfc-attn)
 
-const DATA_USAGE: Record<string, { name: string; usage: number }> = {
+const BASE_USAGE: Record<string, { name: string; usage: number }> = {
   SAU: { name: "Saudi Arabia", usage: 92.4 },
   ARE: { name: "United Arab Emirates", usage: 85.0 },
   KOR: { name: "South Korea", usage: 76.2 },
@@ -65,13 +68,13 @@ const NUMERIC_TO_ISO3: Record<string, string> = {
   "703": "SVK",
 };
 
-const usageValues = Object.values(DATA_USAGE).map((d) => d.usage);
-const minUsage = Math.min(...usageValues);
-const maxUsage = Math.max(...usageValues);
-
-const colorScale = scaleLinear<string>()
-  .domain([minUsage, maxUsage])
-  .range([GREY, TEAL]);
+function generateShuffledUsage(): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const iso3 of Object.keys(BASE_USAGE)) {
+    result[iso3] = Math.round((Math.random() * 90 + 2) * 10) / 10;
+  }
+  return result;
+}
 
 // Country centroids [lat, lng] for arc endpoints
 const COORDS: Record<string, [number, number]> = {
@@ -159,7 +162,6 @@ const ARC_COLORS: Record<CallArc["type"], [string, string]> = {
   mms:  [PINK,   "rgba(255,107,195,0.05)"],
 };
 
-
 function featIso3(feat: object): string | undefined {
   return NUMERIC_TO_ISO3[(feat as { id: string }).id];
 }
@@ -171,7 +173,6 @@ function getAltitude(feat: object): number {
 function getCallArcColor(d: object): [string, string] {
   return ARC_COLORS[(d as CallArc).type];
 }
-
 
 const getSideColor = () => BG_COLOR;
 const getStrokeColor = () => STROKE_COLOR;
@@ -190,6 +191,7 @@ export function DataUsageHeatmap() {
   const [includeNorway, setIncludeNorway] = useState(true);
   const [spinning, setSpinning] = useState(true);
   const [hiddenTypes, setHiddenTypes] = useState<Set<CallArc["type"]>>(new Set());
+  const [usageOverrides, setUsageOverrides] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetch(GEO_URL)
@@ -206,6 +208,23 @@ export function DataUsageHeatmap() {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  const dataUsage = useMemo(() => {
+    if (Object.keys(usageOverrides).length === 0) return BASE_USAGE;
+    return Object.fromEntries(
+      Object.entries(BASE_USAGE).map(([iso3, d]) => [
+        iso3,
+        { ...d, usage: usageOverrides[iso3] ?? d.usage },
+      ]),
+    );
+  }, [usageOverrides]);
+
+  const colorScale = useMemo(() => {
+    const values = Object.values(dataUsage).map((d) => d.usage);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    return scaleLinear<string>().domain([min, max]).range([GREY, SUCCESS]);
+  }, [dataUsage]);
 
   function handleGlobeReady() {
     const globe = globeRef.current;
@@ -231,6 +250,14 @@ export function DataUsageHeatmap() {
     });
   }
 
+  function shuffleData() {
+    setUsageOverrides(generateShuffledUsage());
+  }
+
+  function resetData() {
+    setUsageOverrides({});
+  }
+
   const visibleArcs = useMemo(
     () => (view === "calls" ? CALL_ARCS.filter((a) => !hiddenTypes.has(a.type)) : []),
     [view, hiddenTypes],
@@ -241,29 +268,38 @@ export function DataUsageHeatmap() {
       if (view === "calls") return GREY;
       const iso3 = featIso3(feat);
       if (iso3 === "NOR" && !includeNorway) return GREY;
-      const data = iso3 ? DATA_USAGE[iso3] : undefined;
+      const data = iso3 ? dataUsage[iso3] : undefined;
       return data ? colorScale(data.usage) : GREY;
     },
-    [view, includeNorway],
+    [view, includeNorway, dataUsage, colorScale],
   );
 
   const getLabel = useCallback(
     (feat: object) => {
       const iso3 = featIso3(feat);
-      const data = iso3 ? DATA_USAGE[iso3] : undefined;
+      const data = iso3 ? dataUsage[iso3] : undefined;
       if (!data) return "";
       const inner =
         view === "data"
           ? `<strong>${data.name}</strong><br/>${data.usage} GB / user / month`
           : data.name;
-      return `<div style="background:rgba(10,28,46,0.92);color:${TEXT};padding:8px 12px;border-radius:6px;font-size:13px;border:1px solid rgba(12,242,215,0.3);pointer-events:none">${inner}</div>`;
+      return `<div style="background:var(--bfc-base-2);color:var(--bfc-base-c);padding:8px 12px;border-radius:6px;font-size:13px;border:1px solid var(--bfc-base-dimmed);pointer-events:none">${inner}</div>`;
     },
-    [view],
+    [view, dataUsage],
   );
+
+  const isShuffled = Object.keys(usageOverrides).length > 0;
 
   return (
     <div style={{ width: "100vw", height: "100vh", background: BG_COLOR, position: "relative" }}>
-      <ButtonGroup view={view} onViewChange={setView} includeNorway={includeNorway} onNorwayChange={setIncludeNorway} />
+      <ViewControls
+        view={view}
+        onViewChange={setView}
+        includeNorway={includeNorway}
+        onNorwayChange={setIncludeNorway}
+      />
+
+      <SettingsMenu isShuffled={isShuffled} onShuffle={shuffleData} onReset={resetData} />
       <SpinControl spinning={spinning} onToggle={toggleSpin} />
 
       <Globe
@@ -294,12 +330,16 @@ export function DataUsageHeatmap() {
         onGlobeReady={handleGlobeReady}
       />
 
-      {view === "data" ? <DataLegend /> : <CallsLegend hiddenTypes={hiddenTypes} onToggle={toggleType} />}
+      {view === "data" ? (
+        <DataLegend colorScale={colorScale} dataUsage={dataUsage} />
+      ) : (
+        <CallsLegend hiddenTypes={hiddenTypes} onToggle={toggleType} />
+      )}
     </div>
   );
 }
 
-const ButtonGroup = memo(function ButtonGroup({
+const ViewControls = memo(function ViewControls({
   view,
   onViewChange,
   includeNorway,
@@ -320,59 +360,91 @@ const ButtonGroup = memo(function ButtonGroup({
         zIndex: 10,
         display: "flex",
         alignItems: "center",
-        gap: 4,
-        background: `${SURFACE}dd`,
-        borderRadius: 10,
-        padding: "5px 6px",
-        border: `1px solid rgba(12,242,215,0.2)`,
-        backdropFilter: "blur(6px)",
-        whiteSpace: "nowrap",
+        gap: 12,
       }}
     >
-      {(["data", "calls"] as ViewType[]).map((v) => (
-        <button
-          key={v}
-          onClick={() => onViewChange(v)}
-          style={{
-            background: view === v ? TEAL : "transparent",
-            color: view === v ? BG_COLOR : MUTED,
-            border: "none",
-            borderRadius: 6,
-            padding: "6px 14px",
-            cursor: "pointer",
-            fontWeight: 600,
-            fontSize: 13,
-            transition: "background 0.15s, color 0.15s",
-          }}
-        >
-          {v === "data" ? "Data Usage" : "Calls / SMS / MMS"}
-        </button>
-      ))}
+      <Button.Group>
+        <Button active={view === "data"} onClick={() => onViewChange("data")} small>
+          Data Usage
+        </Button>
+        <Button active={view === "calls"} onClick={() => onViewChange("calls")} small>
+          Calls / SMS / MMS
+        </Button>
+      </Button.Group>
       {view === "data" && (
-        <>
-          <div style={{ width: 1, height: 20, background: "rgba(12,242,215,0.2)", margin: "0 4px" }} />
-          <label
-            style={{
-              color: MUTED,
-              fontSize: 13,
-              cursor: "pointer",
-              userSelect: "none",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "0 8px",
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={includeNorway}
-              onChange={(e) => onNorwayChange(e.target.checked)}
-              style={{ accentColor: TEAL, cursor: "pointer" }}
-            />
-            Include Norway
-          </label>
-        </>
+        <Switch
+          label="Include Norway"
+          checked={includeNorway}
+          onChange={(e) => onNorwayChange(e.target.checked)}
+        />
       )}
+    </div>
+  );
+});
+
+const SettingsMenu = memo(function SettingsMenu({
+  isShuffled,
+  onShuffle,
+  onReset,
+}: {
+  isShuffled: boolean;
+  onShuffle: () => void;
+  onReset: () => void;
+}) {
+  return (
+    <div style={{ position: "absolute", top: 24, right: 24, zIndex: 10 }}>
+      <Dropdown
+        placement="bottom-end"
+        noPadding
+        content={
+          <div style={{ minWidth: 180 }}>
+            <button
+              onClick={onShuffle}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                width: "100%",
+                padding: "10px 14px",
+                background: "none",
+                border: "none",
+                color: "var(--bfc-base-c)",
+                fontSize: 14,
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+            >
+              <FontAwesomeIcon icon={faShuffle} style={{ color: "var(--bfc-base-c-2)", width: 14 }} />
+              Shuffle mock data
+            </button>
+            {isShuffled && (
+              <button
+                onClick={onReset}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  width: "100%",
+                  padding: "10px 14px",
+                  background: "none",
+                  border: "none",
+                  borderTop: "1px solid var(--bfc-base-dimmed)",
+                  color: "var(--bfc-base-c-2)",
+                  fontSize: 14,
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+              >
+                Reset to defaults
+              </button>
+            )}
+          </div>
+        }
+      >
+        <Button small pill noPadding title="Settings" style={{ width: 36, height: 36 }}>
+          <FontAwesomeIcon icon={faGear} />
+        </Button>
+      </Dropdown>
     </div>
   );
 });
@@ -385,48 +457,45 @@ const SpinControl = memo(function SpinControl({
   onToggle: () => void;
 }) {
   return (
-    <button
-      onClick={onToggle}
-      title={spinning ? "Pause rotation" : "Resume rotation"}
-      style={{
-        position: "absolute",
-        bottom: 32,
-        right: 32,
-        zIndex: 10,
-        width: 40,
-        height: 40,
-        borderRadius: "50%",
-        background: `${SURFACE}dd`,
-        border: `1px solid rgba(12,242,215,0.2)`,
-        backdropFilter: "blur(6px)",
-        color: TEAL,
-        fontSize: 18,
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        lineHeight: 1,
-      }}
-    >
-      {spinning ? "⏸" : "▶"}
-    </button>
+    <div style={{ position: "absolute", bottom: 32, right: 32, zIndex: 10 }}>
+      <Button
+        pill
+        noPadding
+        small
+        onClick={onToggle}
+        title={spinning ? "Pause rotation" : "Resume rotation"}
+        style={{ width: 36, height: 36 }}
+      >
+        <FontAwesomeIcon icon={spinning ? faPause : faPlay} />
+      </Button>
+    </div>
   );
 });
 
-const DataLegend = memo(function DataLegend() {
+function DataLegend({
+  colorScale,
+  dataUsage,
+}: {
+  colorScale: (v: number) => string;
+  dataUsage: Record<string, { name: string; usage: number }>;
+}) {
   const steps = 6;
+  const values = Object.values(dataUsage).map((d) => d.usage);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+
   return (
     <div
       style={{
         position: "absolute",
         bottom: 32,
         left: 32,
-        background: `${SURFACE}dd`,
+        background: "var(--bfc-base-2)",
         borderRadius: 8,
         padding: "12px 16px",
         backdropFilter: "blur(4px)",
-        border: `1px solid rgba(12,242,215,0.2)`,
-        color: TEXT,
+        border: "1px solid var(--bfc-base-dimmed)",
+        color: "var(--bfc-base-c)",
         fontSize: 12,
       }}
     >
@@ -434,16 +503,24 @@ const DataLegend = memo(function DataLegend() {
         Data usage (GB/user/month)
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        <span style={{ color: MUTED, marginRight: 4 }}>Other</span>
-        <div style={{ width: 18, height: 18, background: GREY, borderRadius: 3, border: `1px solid ${STROKE_COLOR}` }} />
+        <span style={{ color: "var(--bfc-base-c-2)", marginRight: 4 }}>Other</span>
+        <div
+          style={{
+            width: 18,
+            height: 18,
+            background: GREY,
+            borderRadius: 3,
+            border: `1px solid ${STROKE_COLOR}`,
+          }}
+        />
         <div style={{ width: 12 }} />
         {Array.from({ length: steps }, (_, i) => {
-          const value = minUsage + ((maxUsage - minUsage) * i) / (steps - 1);
+          const value = min + ((max - min) * i) / (steps - 1);
           return (
             <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
               <div style={{ width: 28, height: 14, background: colorScale(value), borderRadius: 2 }} />
               {(i === 0 || i === steps - 1) && (
-                <span style={{ marginTop: 3, color: MUTED }}>{value.toFixed(0)}</span>
+                <span style={{ marginTop: 3, color: "var(--bfc-base-c-2)" }}>{value.toFixed(0)}</span>
               )}
             </div>
           );
@@ -451,7 +528,7 @@ const DataLegend = memo(function DataLegend() {
       </div>
     </div>
   );
-});
+}
 
 function CallsLegend({
   hiddenTypes,
@@ -466,12 +543,12 @@ function CallsLegend({
         position: "absolute",
         bottom: 32,
         left: 32,
-        background: `${SURFACE}dd`,
+        background: "var(--bfc-base-2)",
         borderRadius: 8,
         padding: "12px 16px",
         backdropFilter: "blur(4px)",
-        border: `1px solid rgba(12,242,215,0.2)`,
-        color: TEXT,
+        border: "1px solid var(--bfc-base-dimmed)",
+        color: "var(--bfc-base-c)",
         fontSize: 12,
       }}
     >
@@ -502,7 +579,7 @@ function CallsLegend({
             }}
           >
             <div style={{ width: 28, height: 3, background: ARC_COLORS[type][0], borderRadius: 2 }} />
-            <span style={{ color: MUTED }}>{label}</span>
+            <span style={{ color: "var(--bfc-base-c-2)" }}>{label}</span>
           </div>
         );
       })}

@@ -1,4 +1,5 @@
 import { StrictMode } from "react";
+import Bifrost from "@intility/bifrost-react/Bifrost";
 import { DataUsageHeatmap } from "./components/DataUsageHeatmap";
 import "./index.css";
 
@@ -8,7 +9,9 @@ import "./index.css";
 export default function App() {
   return (
     <StrictMode>
-      <DataUsageHeatmap />
+      <Bifrost>
+        <DataUsageHeatmap />
+      </Bifrost>
     </StrictMode>
   );
 }

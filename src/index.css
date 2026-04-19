@@ -1,3 +1,6 @@
+@import "@intility/bifrost-react/dist/font-imports.css";
+@import "@intility/bifrost-react/dist/bifrost-bundle.css" layer(bifrost);
+
 *,
 *::before,
 *::after {
@@ -11,7 +14,7 @@ body,
 #root {
   width: 100%;
   height: 100%;
-  background: #071627;
+  background: var(--bfc-base);
   overflow: hidden;
 }
 
