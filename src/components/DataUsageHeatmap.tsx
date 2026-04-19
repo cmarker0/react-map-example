@@ -363,11 +363,11 @@ const ViewControls = memo(function ViewControls({
         gap: 12,
       }}
     >
-      <Button.Group>
-        <Button active={view === "data"} onClick={() => onViewChange("data")} small>
+      <Button.Group style={{ whiteSpace: "nowrap" }}>
+        <Button active={view === "data"} onClick={() => onViewChange("data")} small style={{ whiteSpace: "nowrap" }}>
           Data Usage
         </Button>
-        <Button active={view === "calls"} onClick={() => onViewChange("calls")} small>
+        <Button active={view === "calls"} onClick={() => onViewChange("calls")} small style={{ whiteSpace: "nowrap" }}>
           Calls / SMS / MMS
         </Button>
       </Button.Group>
