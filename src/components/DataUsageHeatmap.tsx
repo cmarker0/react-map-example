@@ -292,14 +292,15 @@ export function DataUsageHeatmap() {
 
   return (
     <div style={{ width: "100vw", height: "100vh", background: BG_COLOR, position: "relative" }}>
-      <ViewControls
+      <TopBar
         view={view}
         onViewChange={setView}
         includeNorway={includeNorway}
         onNorwayChange={setIncludeNorway}
+        isShuffled={isShuffled}
+        onShuffle={shuffleData}
+        onReset={resetData}
       />
-
-      <SettingsMenu isShuffled={isShuffled} onShuffle={shuffleData} onReset={resetData} />
       <SpinControl spinning={spinning} onToggle={toggleSpin} />
 
       <Globe
@@ -339,87 +340,67 @@ export function DataUsageHeatmap() {
   );
 }
 
-const ViewControls = memo(function ViewControls({
+const TopBar = memo(function TopBar({
   view,
   onViewChange,
   includeNorway,
   onNorwayChange,
+  isShuffled,
+  onShuffle,
+  onReset,
 }: {
   view: ViewType;
   onViewChange: (v: ViewType) => void;
   includeNorway: boolean;
   onNorwayChange: (v: boolean) => void;
-}) {
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top: 24,
-        left: "50%",
-        transform: "translateX(-50%)",
-        zIndex: 10,
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-      }}
-    >
-      <Button.Group style={{ whiteSpace: "nowrap" }}>
-        <Button active={view === "data"} onClick={() => onViewChange("data")} small style={{ whiteSpace: "nowrap" }}>
-          Data Usage
-        </Button>
-        <Button active={view === "calls"} onClick={() => onViewChange("calls")} small style={{ whiteSpace: "nowrap" }}>
-          Calls / SMS / MMS
-        </Button>
-      </Button.Group>
-      {view === "data" && (
-        <Switch
-          label="Include Norway"
-          checked={includeNorway}
-          onChange={(e) => onNorwayChange(e.target.checked)}
-        />
-      )}
-    </div>
-  );
-});
-
-const SettingsMenu = memo(function SettingsMenu({
-  isShuffled,
-  onShuffle,
-  onReset,
-}: {
   isShuffled: boolean;
   onShuffle: () => void;
   onReset: () => void;
 }) {
   return (
-    <div style={{ position: "absolute", top: 24, right: 24, zIndex: 10 }}>
-      <Dropdown
-        placement="bottom-end"
-        noPadding
-        content={
-          <div style={{ minWidth: 180 }}>
-            <button
-              onClick={onShuffle}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                width: "100%",
-                padding: "10px 14px",
-                background: "none",
-                border: "none",
-                color: "var(--bfc-base-c)",
-                fontSize: 14,
-                cursor: "pointer",
-                textAlign: "left",
-              }}
-            >
-              <FontAwesomeIcon icon={faShuffle} style={{ color: "var(--bfc-base-c-2)", width: 14 }} />
-              Shuffle mock data
-            </button>
-            {isShuffled && (
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 10,
+        padding: "12px 16px",
+        paddingTop: "max(12px, env(safe-area-inset-top))",
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+        background: "linear-gradient(to bottom, rgba(6,21,39,0.9) 60%, transparent)",
+      }}
+    >
+      {/* Row 1: view switcher + settings */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <Button.Group style={{ flex: 1, minWidth: 0 }}>
+          <Button
+            active={view === "data"}
+            onClick={() => onViewChange("data")}
+            small
+            style={{ flex: 1, whiteSpace: "nowrap" }}
+          >
+            Data Usage
+          </Button>
+          <Button
+            active={view === "calls"}
+            onClick={() => onViewChange("calls")}
+            small
+            style={{ flex: 1, whiteSpace: "nowrap" }}
+          >
+            Calls / SMS / MMS
+          </Button>
+        </Button.Group>
+
+        <Dropdown
+          placement="bottom-end"
+          noPadding
+          content={
+            <div style={{ minWidth: 180 }}>
               <button
-                onClick={onReset}
+                onClick={onShuffle}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -428,23 +409,53 @@ const SettingsMenu = memo(function SettingsMenu({
                   padding: "10px 14px",
                   background: "none",
                   border: "none",
-                  borderTop: "1px solid var(--bfc-base-dimmed)",
-                  color: "var(--bfc-base-c-2)",
+                  color: "var(--bfc-base-c)",
                   fontSize: 14,
                   cursor: "pointer",
                   textAlign: "left",
                 }}
               >
-                Reset to defaults
+                <FontAwesomeIcon icon={faShuffle} style={{ color: "var(--bfc-base-c-2)", width: 14 }} />
+                Shuffle mock data
               </button>
-            )}
-          </div>
-        }
-      >
-        <Button small pill noPadding title="Settings" style={{ width: 36, height: 36 }}>
-          <FontAwesomeIcon icon={faGear} />
-        </Button>
-      </Dropdown>
+              {isShuffled && (
+                <button
+                  onClick={onReset}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    width: "100%",
+                    padding: "10px 14px",
+                    background: "none",
+                    border: "none",
+                    borderTop: "1px solid var(--bfc-base-dimmed)",
+                    color: "var(--bfc-base-c-2)",
+                    fontSize: 14,
+                    cursor: "pointer",
+                    textAlign: "left",
+                  }}
+                >
+                  Reset to defaults
+                </button>
+              )}
+            </div>
+          }
+        >
+          <Button small pill noPadding title="Settings" style={{ width: 36, height: 36, flexShrink: 0 }}>
+            <FontAwesomeIcon icon={faGear} />
+          </Button>
+        </Dropdown>
+      </div>
+
+      {/* Row 2: Norway toggle (data view only) */}
+      {view === "data" && (
+        <Switch
+          label="Include Norway"
+          checked={includeNorway}
+          onChange={(e) => onNorwayChange(e.target.checked)}
+        />
+      )}
     </div>
   );
 });
@@ -457,7 +468,14 @@ const SpinControl = memo(function SpinControl({
   onToggle: () => void;
 }) {
   return (
-    <div style={{ position: "absolute", bottom: 32, right: 32, zIndex: 10 }}>
+    <div
+      style={{
+        position: "absolute",
+        bottom: "max(24px, calc(24px + env(safe-area-inset-bottom)))",
+        right: 16,
+        zIndex: 10,
+      }}
+    >
       <Button
         pill
         noPadding
@@ -488,8 +506,8 @@ function DataLegend({
     <div
       style={{
         position: "absolute",
-        bottom: 32,
-        left: 32,
+        bottom: "max(24px, calc(24px + env(safe-area-inset-bottom)))",
+        left: 16,
         background: "var(--bfc-base-2)",
         borderRadius: 8,
         padding: "12px 16px",
@@ -541,8 +559,8 @@ function CallsLegend({
     <div
       style={{
         position: "absolute",
-        bottom: 32,
-        left: 32,
+        bottom: "max(24px, calc(24px + env(safe-area-inset-bottom)))",
+        left: 16,
         background: "var(--bfc-base-2)",
         borderRadius: 8,
         padding: "12px 16px",
