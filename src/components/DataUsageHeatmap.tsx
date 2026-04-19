@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import Globe from "react-globe.gl";
 import type { GlobeMethods } from "react-globe.gl";
 import { feature } from "topojson-client";
@@ -6,6 +6,8 @@ import type { Topology } from "topojson-specification";
 import { scaleLinear } from "d3-scale";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+const BG_COLOR = "#071627";
+const GREY = "#495869";
 
 const DATA_USAGE: Record<string, { name: string; usage: number }> = {
   SAU: { name: "Saudi Arabia", usage: 92.4 },
@@ -62,9 +64,6 @@ const colorScale = scaleLinear<string>()
   .domain([minUsage, maxUsage])
   .range(["#495869", "#00f597"]);
 
-const GREY = "#495869";
-const BG_COLOR = "#071627";
-
 // Country centroids [lat, lng] for arc endpoints
 const COORDS: Record<string, [number, number]> = {
   SAU: [24.7, 45.1],
@@ -89,78 +88,107 @@ const COORDS: Record<string, [number, number]> = {
   SVK: [48.7, 19.7],
 };
 
-interface Arc {
+interface CallArc {
   startLat: number;
   startLng: number;
   endLat: number;
   endLng: number;
+  volume: number;
+  type: "call" | "sms" | "mms";
 }
 
-function mkArc(from: string, to: string): Arc {
+function mkArc(from: string, to: string, volume: number, type: CallArc["type"]): CallArc {
   const [startLat, startLng] = COORDS[from]!;
   const [endLat, endLng] = COORDS[to]!;
-  return { startLat, startLng, endLat, endLng };
+  return { startLat, startLng, endLat, endLng, volume, type };
 }
 
-const ARCS: Arc[] = [
-  mkArc("SAU", "IND"),
-  mkArc("SAU", "USA"),
-  mkArc("ARE", "SGP"),
-  mkArc("ARE", "IND"),
-  mkArc("KOR", "JPN"),
-  mkArc("KOR", "USA"),
-  mkArc("KOR", "CHN"),
-  mkArc("IND", "SGP"),
-  mkArc("IND", "AUS"),
-  mkArc("CHN", "USA"),
-  mkArc("CHN", "JPN"),
-  mkArc("USA", "BRA"),
-  mkArc("USA", "DEU"),
-  mkArc("USA", "AUS"),
-  mkArc("DEU", "FRA"),
-  mkArc("DEU", "POL"),
-  mkArc("FIN", "SWE"),
-  mkArc("SWE", "NOR"),
-  mkArc("NOR", "DNK"),
-  mkArc("SGP", "AUS"),
+const CALL_ARCS: CallArc[] = [
+  // Voice calls
+  mkArc("ARE", "IND", 9200, "call"),
+  mkArc("USA", "IND", 8500, "call"),
+  mkArc("SAU", "IND", 7800, "call"),
+  mkArc("USA", "CHN", 6200, "call"),
+  mkArc("DEU", "FRA", 5100, "call"),
+  mkArc("NOR", "SWE", 4800, "call"),
+  mkArc("CHN", "KOR", 3500, "call"),
+  mkArc("CHN", "JPN", 4200, "call"),
+  mkArc("FIN", "SWE", 4200, "call"),
+  mkArc("SWE", "DNK", 3900, "call"),
+  mkArc("BRA", "USA", 3200, "call"),
+  mkArc("KOR", "USA", 3100, "call"),
+  mkArc("IND", "SGP", 2800, "call"),
+  mkArc("GRC", "DEU", 2400, "call"),
+  mkArc("AUS", "SGP", 2100, "call"),
+  // SMS
+  mkArc("ARE", "IND", 6100, "sms"),
+  mkArc("NOR", "SWE", 5600, "sms"),
+  mkArc("USA", "IND", 5200, "sms"),
+  mkArc("FIN", "SWE", 5100, "sms"),
+  mkArc("KOR", "JPN", 4800, "sms"),
+  mkArc("IND", "SAU", 4100, "sms"),
+  mkArc("DEU", "FRA", 3800, "sms"),
+  mkArc("CHN", "KOR", 3600, "sms"),
+  mkArc("CHN", "USA", 3100, "sms"),
+  mkArc("SGP", "AUS", 2900, "sms"),
+  mkArc("DEU", "POL", 2800, "sms"),
+  mkArc("USA", "BRA", 2400, "sms"),
+  // MMS
+  mkArc("IND", "ARE", 2400, "mms"),
+  mkArc("NOR", "SWE", 2100, "mms"),
+  mkArc("KOR", "USA", 1800, "mms"),
+  mkArc("SWE", "DNK", 1700, "mms"),
+  mkArc("JPN", "KOR", 1500, "mms"),
+  mkArc("CHN", "JPN", 1300, "mms"),
+  mkArc("USA", "CHN", 1200, "mms"),
+  mkArc("AUS", "SGP", 1100, "mms"),
+  mkArc("DEU", "POL", 900, "mms"),
 ];
+
+const ARC_COLORS: Record<CallArc["type"], [string, string]> = {
+  call: ["#00f597", "rgba(0,245,151,0.05)"],
+  sms:  ["#38bdf8", "rgba(56,189,248,0.05)"],
+  mms:  ["#fb923c", "rgba(251,146,60,0.05)"],
+};
+
+const MAX_CALL_VOLUME = Math.max(...CALL_ARCS.map((a) => a.volume));
 
 function featIso3(feat: object): string | undefined {
   return NUMERIC_TO_ISO3[(feat as { id: string }).id];
 }
 
-function getCapColor(feat: object): string {
-  const iso3 = featIso3(feat);
-  const data = iso3 ? DATA_USAGE[iso3] : undefined;
-  return data ? colorScale(data.usage) : GREY;
-}
-
 function getAltitude(feat: object): number {
-  const iso3 = featIso3(feat);
-  return iso3 && DATA_USAGE[iso3] ? 0.014 : 0.006;
+  return featIso3(feat) ? 0.014 : 0.006;
 }
 
-function getLabel(feat: object): string {
-  const iso3 = featIso3(feat);
-  const data = iso3 ? DATA_USAGE[iso3] : undefined;
-  if (!data) return "";
-  return `<div style="background:rgba(7,22,39,0.9);color:#fff;padding:8px 12px;border-radius:6px;font-size:13px;border:1px solid rgba(0,245,151,0.3);pointer-events:none">
-    <strong>${data.name}</strong><br/>${data.usage} GB / user / month
-  </div>`;
+function getCallArcColor(d: object): [string, string] {
+  return ARC_COLORS[(d as CallArc).type];
+}
+
+function getCallArcStroke(d: object): number {
+  return 0.15 + ((d as CallArc).volume / MAX_CALL_VOLUME) * 1.0;
+}
+
+function getCallArcAnimateTime(d: object): number {
+  const times: Record<CallArc["type"], number> = { call: 3000, sms: 1500, mms: 2000 };
+  return times[(d as CallArc).type];
 }
 
 const getSideColor = () => BG_COLOR;
 const getStrokeColor = () => "#1e3040";
-const getArcColor = () => ["#00f597", "rgba(0,245,151,0.1)"];
-const getArcStartLat = (d: object) => (d as Arc).startLat;
-const getArcStartLng = (d: object) => (d as Arc).startLng;
-const getArcEndLat = (d: object) => (d as Arc).endLat;
-const getArcEndLng = (d: object) => (d as Arc).endLng;
+const getArcStartLat = (d: object) => (d as CallArc).startLat;
+const getArcStartLng = (d: object) => (d as CallArc).startLng;
+const getArcEndLat = (d: object) => (d as CallArc).endLat;
+const getArcEndLng = (d: object) => (d as CallArc).endLng;
+
+type ViewType = "data" | "calls";
 
 export function DataUsageHeatmap() {
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const [countries, setCountries] = useState<object[]>([]);
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight });
+  const [view, setView] = useState<ViewType>("data");
+  const [includeNorway, setIncludeNorway] = useState(true);
 
   useEffect(() => {
     fetch(GEO_URL)
@@ -186,8 +214,35 @@ export function DataUsageHeatmap() {
     globe.pointOfView({ altitude: 2.2 });
   }
 
+  const getCapColor = useCallback(
+    (feat: object) => {
+      if (view === "calls") return GREY;
+      const iso3 = featIso3(feat);
+      if (iso3 === "NOR" && !includeNorway) return GREY;
+      const data = iso3 ? DATA_USAGE[iso3] : undefined;
+      return data ? colorScale(data.usage) : GREY;
+    },
+    [view, includeNorway],
+  );
+
+  const getLabel = useCallback(
+    (feat: object) => {
+      const iso3 = featIso3(feat);
+      const data = iso3 ? DATA_USAGE[iso3] : undefined;
+      if (!data) return "";
+      const inner =
+        view === "data"
+          ? `<strong>${data.name}</strong><br/>${data.usage} GB / user / month`
+          : data.name;
+      return `<div style="background:rgba(7,22,39,0.9);color:#fff;padding:8px 12px;border-radius:6px;font-size:13px;border:1px solid rgba(0,245,151,0.25);pointer-events:none">${inner}</div>`;
+    },
+    [view],
+  );
+
   return (
     <div style={{ width: "100vw", height: "100vh", background: BG_COLOR, position: "relative" }}>
+      <ButtonGroup view={view} onViewChange={setView} includeNorway={includeNorway} onNorwayChange={setIncludeNorway} />
+
       <Globe
         ref={globeRef}
         width={size.w}
@@ -202,32 +257,103 @@ export function DataUsageHeatmap() {
         polygonStrokeColor={getStrokeColor}
         polygonAltitude={getAltitude}
         polygonLabel={getLabel}
-        arcsData={ARCS}
+        arcsData={view === "calls" ? CALL_ARCS : []}
         arcStartLat={getArcStartLat}
         arcStartLng={getArcStartLng}
         arcEndLat={getArcEndLat}
         arcEndLng={getArcEndLng}
-        arcColor={getArcColor}
+        arcColor={getCallArcColor}
         arcDashLength={0.4}
-        arcDashGap={0.2}
-        arcDashAnimateTime={2500}
-        arcStroke={0.4}
+        arcDashGap={0.15}
+        arcDashAnimateTime={getCallArcAnimateTime}
+        arcStroke={getCallArcStroke}
         onGlobeReady={handleGlobeReady}
       />
-      <Legend minUsage={minUsage} maxUsage={maxUsage} colorScale={colorScale} />
+
+      {view === "data" ? <DataLegend /> : <CallsLegend />}
     </div>
   );
 }
 
-const Legend = memo(function Legend({
-  minUsage,
-  maxUsage,
-  colorScale,
+const ButtonGroup = memo(function ButtonGroup({
+  view,
+  onViewChange,
+  includeNorway,
+  onNorwayChange,
 }: {
-  minUsage: number;
-  maxUsage: number;
-  colorScale: (value: number) => string;
+  view: ViewType;
+  onViewChange: (v: ViewType) => void;
+  includeNorway: boolean;
+  onNorwayChange: (v: boolean) => void;
 }) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 24,
+        left: "50%",
+        transform: "translateX(-50%)",
+        zIndex: 10,
+        display: "flex",
+        alignItems: "center",
+        gap: 4,
+        background: "rgba(7,22,39,0.88)",
+        borderRadius: 10,
+        padding: "5px 6px",
+        border: "1px solid rgba(0,245,151,0.2)",
+        backdropFilter: "blur(6px)",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {(["data", "calls"] as ViewType[]).map((v) => (
+        <button
+          key={v}
+          onClick={() => onViewChange(v)}
+          style={{
+            background: view === v ? "#00f597" : "transparent",
+            color: view === v ? BG_COLOR : "#8a9bb0",
+            border: "none",
+            borderRadius: 6,
+            padding: "6px 14px",
+            cursor: "pointer",
+            fontWeight: 600,
+            fontSize: 13,
+            transition: "background 0.15s, color 0.15s",
+          }}
+        >
+          {v === "data" ? "Data Usage" : "Calls / SMS / MMS"}
+        </button>
+      ))}
+      {view === "data" && (
+        <>
+          <div style={{ width: 1, height: 20, background: "rgba(0,245,151,0.2)", margin: "0 4px" }} />
+          <label
+            style={{
+              color: "#8a9bb0",
+              fontSize: 13,
+              cursor: "pointer",
+              userSelect: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "0 8px",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={includeNorway}
+              onChange={(e) => onNorwayChange(e.target.checked)}
+              style={{ accentColor: "#00f597", cursor: "pointer" }}
+            />
+            Include Norway
+          </label>
+        </>
+      )}
+    </div>
+  );
+});
+
+const DataLegend = memo(function DataLegend() {
   const steps = 6;
   return (
     <div
@@ -249,28 +375,13 @@ const Legend = memo(function Legend({
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <span style={{ color: "#888", marginRight: 4 }}>Other</span>
-        <div
-          style={{
-            width: 18,
-            height: 18,
-            background: GREY,
-            borderRadius: 3,
-            border: "1px solid #2a3a4a",
-          }}
-        />
+        <div style={{ width: 18, height: 18, background: GREY, borderRadius: 3, border: "1px solid #2a3a4a" }} />
         <div style={{ width: 12 }} />
         {Array.from({ length: steps }, (_, i) => {
           const value = minUsage + ((maxUsage - minUsage) * i) / (steps - 1);
           return (
             <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              <div
-                style={{
-                  width: 28,
-                  height: 14,
-                  background: colorScale(value),
-                  borderRadius: 2,
-                }}
-              />
+              <div style={{ width: 28, height: 14, background: colorScale(value), borderRadius: 2 }} />
               {(i === 0 || i === steps - 1) && (
                 <span style={{ marginTop: 3, color: "#aaa" }}>{value.toFixed(0)}</span>
               )}
@@ -278,6 +389,42 @@ const Legend = memo(function Legend({
           );
         })}
       </div>
+    </div>
+  );
+});
+
+const CallsLegend = memo(function CallsLegend() {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        bottom: 32,
+        left: 32,
+        background: "rgba(7,22,39,0.85)",
+        borderRadius: 8,
+        padding: "12px 16px",
+        backdropFilter: "blur(4px)",
+        border: "1px solid rgba(0,245,151,0.25)",
+        color: "#e0f0e0",
+        fontSize: 12,
+      }}
+    >
+      <div style={{ marginBottom: 8, fontWeight: 600, letterSpacing: "0.04em" }}>
+        International Traffic
+      </div>
+      {(
+        [
+          { type: "call", label: "Voice Calls" },
+          { type: "sms",  label: "SMS" },
+          { type: "mms",  label: "MMS" },
+        ] as { type: CallArc["type"]; label: string }[]
+      ).map(({ type, label }) => (
+        <div key={type} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+          <div style={{ width: 28, height: 3, background: ARC_COLORS[type][0], borderRadius: 2 }} />
+          <span style={{ color: "#aaa" }}>{label}</span>
+        </div>
+      ))}
+      <div style={{ marginTop: 6, color: "#666", fontSize: 11 }}>Arc thickness = volume</div>
     </div>
   );
 });
