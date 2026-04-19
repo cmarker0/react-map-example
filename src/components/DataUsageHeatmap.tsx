@@ -137,7 +137,7 @@ function getCapColor(feat: object): string {
 
 function getAltitude(feat: object): number {
   const iso3 = featIso3(feat);
-  return iso3 && DATA_USAGE[iso3] ? 0.014 : 0.002;
+  return iso3 && DATA_USAGE[iso3] ? 0.014 : 0.006;
 }
 
 function getLabel(feat: object): string {
