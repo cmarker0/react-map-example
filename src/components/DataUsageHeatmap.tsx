@@ -212,15 +212,15 @@ export function DataUsageHeatmap() {
   const [arcOverrides, setArcOverrides] = useState<CallArc[] | null>(null);
 
   // Globe settings
-  const [rotateSpeed, setRotateSpeed] = useState(0.5);
-  const [rotateDir, setRotateDir] = useState<1 | -1>(1);
+  const [rotateSpeed, setRotateSpeed] = useState(1.0);
+  const [rotateDir, setRotateDir] = useState<1 | -1>(-1);
   const [showAtmosphere, setShowAtmosphere] = useState(true);
   const [globeDay, setGlobeDay] = useState(false);
 
   // Arc settings
-  const [arcHeight, setArcHeight] = useState(0.35);
-  const [arcAnimateTime, setArcAnimateTime] = useState(5000);
-  const [arcStroke, setArcStroke] = useState(0.5);
+  const [arcHeight, setArcHeight] = useState(0.20);
+  const [arcAnimateTime, setArcAnimateTime] = useState(8000);
+  const [arcStroke, setArcStroke] = useState(1.0);
 
   useEffect(() => {
     fetch(GEO_URL)
