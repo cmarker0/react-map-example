@@ -459,7 +459,7 @@ const TopBar = memo(function TopBar({
   arcStroke: number;
   onArcStroke: (v: number) => void;
 }) {
-  const isMobile = useBreakpoint(null, "small");
+  const isMobile = useBreakpoint(null, "medium");
 
   const settingsDropdown = (
     <Dropdown
@@ -736,12 +736,13 @@ const SpinControl = memo(function SpinControl({
   spinning: boolean;
   onToggle: () => void;
 }) {
+  const isMobile = useBreakpoint(null, "medium");
   return (
     <div
       style={{
         position: "absolute",
-        bottom: "calc(100px + env(safe-area-inset-bottom, 0px))",
-        right: 16,
+        bottom: isMobile ? "calc(100px + env(safe-area-inset-bottom, 0px))" : 32,
+        right: isMobile ? 16 : 32,
         zIndex: 10,
       }}
     >
@@ -766,6 +767,7 @@ function DataLegend({
   colorScale: (v: number) => string;
   dataUsage: Record<string, { name: string; usage: number }>;
 }) {
+  const isMobile = useBreakpoint(null, "medium");
   const steps = 6;
   const values = Object.values(dataUsage).map((d) => d.usage);
   const min = Math.min(...values);
@@ -775,8 +777,8 @@ function DataLegend({
     <div
       style={{
         position: "absolute",
-        bottom: "calc(100px + env(safe-area-inset-bottom, 0px))",
-        left: 16,
+        bottom: isMobile ? "calc(100px + env(safe-area-inset-bottom, 0px))" : 32,
+        left: isMobile ? 16 : 32,
         background: "var(--bfc-base-2)",
         borderRadius: 8,
         padding: "12px 16px",
@@ -824,12 +826,13 @@ function CallsLegend({
   hiddenTypes: Set<CallArc["type"]>;
   onToggle: (type: CallArc["type"]) => void;
 }) {
+  const isMobile = useBreakpoint(null, "medium");
   return (
     <div
       style={{
         position: "absolute",
-        bottom: "calc(100px + env(safe-area-inset-bottom, 0px))",
-        left: 16,
+        bottom: isMobile ? "calc(100px + env(safe-area-inset-bottom, 0px))" : 32,
+        left: isMobile ? 16 : 32,
         background: "var(--bfc-base-2)",
         borderRadius: 8,
         padding: "12px 16px",
