@@ -215,7 +215,7 @@ export function DataUsageHeatmap() {
   const [rotateSpeed, setRotateSpeed] = useState(1.0);
   const [rotateDir, setRotateDir] = useState<1 | -1>(-1);
   const [showAtmosphere, setShowAtmosphere] = useState(true);
-  const [globeDay, setGlobeDay] = useState(true);
+  const [globeDay, setGlobeDay] = useState(false);
 
   // Arc settings
   const [arcHeight, setArcHeight] = useState(0.20);
