@@ -226,7 +226,7 @@ export function DataUsageHeatmap() {
   const [globeDay, setGlobeDay] = useState(false);
 
   // Arc settings
-  const [arcHeight, setArcHeight] = useState(0.20);
+  const [arcHeight, setArcHeight] = useState(0.50);
   const [arcAnimateTime, setArcAnimateTime] = useState(8000);
   const [arcStroke, setArcStroke] = useState(1.0);
 
