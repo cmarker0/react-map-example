@@ -76,6 +76,23 @@ function generateShuffledUsage(): Record<string, number> {
   return result;
 }
 
+function generateShuffledArcs(): CallArc[] {
+  const countries = Object.keys(COORDS);
+  const types: CallArc["type"][] = ["call", "sms", "mms"];
+  const arcs: CallArc[] = [];
+  // Generate ~36 random arcs (12 per type), avoiding self-loops
+  for (const type of types) {
+    const count = 10 + Math.floor(Math.random() * 6);
+    for (let i = 0; i < count; i++) {
+      let from = countries[Math.floor(Math.random() * countries.length)]!;
+      let to = countries[Math.floor(Math.random() * countries.length)]!;
+      while (to === from) to = countries[Math.floor(Math.random() * countries.length)]!;
+      arcs.push(mkArc(from, to, type));
+    }
+  }
+  return arcs;
+}
+
 // Country centroids [lat, lng] for arc endpoints
 const COORDS: Record<string, [number, number]> = {
   SAU: [24.7, 45.1],
@@ -192,6 +209,7 @@ export function DataUsageHeatmap() {
   const [spinning, setSpinning] = useState(true);
   const [hiddenTypes, setHiddenTypes] = useState<Set<CallArc["type"]>>(new Set());
   const [usageOverrides, setUsageOverrides] = useState<Record<string, number>>({});
+  const [arcOverrides, setArcOverrides] = useState<CallArc[] | null>(null);
 
   // Globe settings
   const [rotateSpeed, setRotateSpeed] = useState(0.5);
@@ -267,15 +285,19 @@ export function DataUsageHeatmap() {
 
   function shuffleData() {
     setUsageOverrides(generateShuffledUsage());
+    setArcOverrides(generateShuffledArcs());
   }
 
   function resetData() {
     setUsageOverrides({});
+    setArcOverrides(null);
   }
 
+  const activeArcs = arcOverrides ?? CALL_ARCS;
+
   const visibleArcs = useMemo(
-    () => (view === "calls" ? CALL_ARCS.filter((a) => !hiddenTypes.has(a.type)) : []),
-    [view, hiddenTypes],
+    () => (view === "calls" ? activeArcs.filter((a) => !hiddenTypes.has(a.type)) : []),
+    [view, hiddenTypes, activeArcs],
   );
 
   const getCapColor = useCallback(
