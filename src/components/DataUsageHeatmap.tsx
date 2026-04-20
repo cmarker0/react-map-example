@@ -193,6 +193,17 @@ export function DataUsageHeatmap() {
   const [hiddenTypes, setHiddenTypes] = useState<Set<CallArc["type"]>>(new Set());
   const [usageOverrides, setUsageOverrides] = useState<Record<string, number>>({});
 
+  // Globe settings
+  const [rotateSpeed, setRotateSpeed] = useState(0.5);
+  const [rotateDir, setRotateDir] = useState<1 | -1>(1);
+  const [showAtmosphere, setShowAtmosphere] = useState(true);
+  const [globeDay, setGlobeDay] = useState(false);
+
+  // Arc settings
+  const [arcHeight, setArcHeight] = useState(0.35);
+  const [arcAnimateTime, setArcAnimateTime] = useState(5000);
+  const [arcStroke, setArcStroke] = useState(0.5);
+
   useEffect(() => {
     fetch(GEO_URL)
       .then((r) => r.json())
@@ -226,11 +237,15 @@ export function DataUsageHeatmap() {
     return scaleLinear<string>().domain([min, max]).range([GREY, SUCCESS]);
   }, [dataUsage]);
 
+  useEffect(() => {
+    if (globeRef.current) globeRef.current.controls().autoRotateSpeed = rotateSpeed * rotateDir;
+  }, [rotateSpeed, rotateDir]);
+
   function handleGlobeReady() {
     const globe = globeRef.current;
     if (!globe) return;
     globe.controls().autoRotate = spinning;
-    globe.controls().autoRotateSpeed = 0.5;
+    globe.controls().autoRotateSpeed = rotateSpeed * rotateDir;
     globe.pointOfView({ altitude: 2.2 });
   }
 
@@ -300,6 +315,20 @@ export function DataUsageHeatmap() {
         isShuffled={isShuffled}
         onShuffle={shuffleData}
         onReset={resetData}
+        rotateSpeed={rotateSpeed}
+        onRotateSpeed={setRotateSpeed}
+        rotateDir={rotateDir}
+        onRotateDir={setRotateDir}
+        showAtmosphere={showAtmosphere}
+        onShowAtmosphere={setShowAtmosphere}
+        globeDay={globeDay}
+        onGlobeDay={setGlobeDay}
+        arcHeight={arcHeight}
+        onArcHeight={setArcHeight}
+        arcAnimateTime={arcAnimateTime}
+        onArcAnimateTime={setArcAnimateTime}
+        arcStroke={arcStroke}
+        onArcStroke={setArcStroke}
       />
       <SpinControl spinning={spinning} onToggle={toggleSpin} />
 
@@ -308,9 +337,13 @@ export function DataUsageHeatmap() {
         width={size.w}
         height={size.h}
         backgroundColor={BG_COLOR}
-        globeImageUrl="https://unpkg.com/three-globe/example/img/earth-night.jpg"
+        globeImageUrl={
+          globeDay
+            ? "https://unpkg.com/three-globe/example/img/earth-day.jpg"
+            : "https://unpkg.com/three-globe/example/img/earth-night.jpg"
+        }
         atmosphereColor={TEAL}
-        atmosphereAltitude={0.15}
+        atmosphereAltitude={showAtmosphere ? 0.15 : 0}
         polygonsData={countries}
         polygonCapColor={getCapColor}
         polygonSideColor={getSideColor}
@@ -323,11 +356,11 @@ export function DataUsageHeatmap() {
         arcEndLat={getArcEndLat}
         arcEndLng={getArcEndLng}
         arcColor={getCallArcColor}
-        arcAltitude={0.35}
+        arcAltitude={arcHeight}
         arcDashLength={0.3}
         arcDashGap={0.15}
-        arcDashAnimateTime={5000}
-        arcStroke={0.5}
+        arcDashAnimateTime={arcAnimateTime}
+        arcStroke={arcStroke}
         onGlobeReady={handleGlobeReady}
       />
 
@@ -348,6 +381,20 @@ const TopBar = memo(function TopBar({
   isShuffled,
   onShuffle,
   onReset,
+  rotateSpeed,
+  onRotateSpeed,
+  rotateDir,
+  onRotateDir,
+  showAtmosphere,
+  onShowAtmosphere,
+  globeDay,
+  onGlobeDay,
+  arcHeight,
+  onArcHeight,
+  arcAnimateTime,
+  onArcAnimateTime,
+  arcStroke,
+  onArcStroke,
 }: {
   view: ViewType;
   onViewChange: (v: ViewType) => void;
@@ -356,6 +403,20 @@ const TopBar = memo(function TopBar({
   isShuffled: boolean;
   onShuffle: () => void;
   onReset: () => void;
+  rotateSpeed: number;
+  onRotateSpeed: (v: number) => void;
+  rotateDir: 1 | -1;
+  onRotateDir: (v: 1 | -1) => void;
+  showAtmosphere: boolean;
+  onShowAtmosphere: (v: boolean) => void;
+  globeDay: boolean;
+  onGlobeDay: (v: boolean) => void;
+  arcHeight: number;
+  onArcHeight: (v: number) => void;
+  arcAnimateTime: number;
+  onArcAnimateTime: (v: number) => void;
+  arcStroke: number;
+  onArcStroke: (v: number) => void;
 }) {
   return (
     <div
@@ -397,49 +458,27 @@ const TopBar = memo(function TopBar({
         <Dropdown
           placement="bottom-end"
           noPadding
+          strategy="fixed"
           content={
-            <div style={{ minWidth: 180 }}>
-              <button
-                onClick={onShuffle}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  width: "100%",
-                  padding: "10px 14px",
-                  background: "none",
-                  border: "none",
-                  color: "var(--bfc-base-c)",
-                  fontSize: 14,
-                  cursor: "pointer",
-                  textAlign: "left",
-                }}
-              >
-                <FontAwesomeIcon icon={faShuffle} style={{ color: "var(--bfc-base-c-2)", width: 14 }} />
-                Shuffle mock data
-              </button>
-              {isShuffled && (
-                <button
-                  onClick={onReset}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    width: "100%",
-                    padding: "10px 14px",
-                    background: "none",
-                    border: "none",
-                    borderTop: "1px solid var(--bfc-base-dimmed)",
-                    color: "var(--bfc-base-c-2)",
-                    fontSize: 14,
-                    cursor: "pointer",
-                    textAlign: "left",
-                  }}
-                >
-                  Reset to defaults
-                </button>
-              )}
-            </div>
+            <SettingsPanel
+              isShuffled={isShuffled}
+              onShuffle={onShuffle}
+              onReset={onReset}
+              rotateSpeed={rotateSpeed}
+              onRotateSpeed={onRotateSpeed}
+              rotateDir={rotateDir}
+              onRotateDir={onRotateDir}
+              showAtmosphere={showAtmosphere}
+              onShowAtmosphere={onShowAtmosphere}
+              globeDay={globeDay}
+              onGlobeDay={onGlobeDay}
+              arcHeight={arcHeight}
+              onArcHeight={onArcHeight}
+              arcAnimateTime={arcAnimateTime}
+              onArcAnimateTime={onArcAnimateTime}
+              arcStroke={arcStroke}
+              onArcStroke={onArcStroke}
+            />
           }
         >
           <Button small pill noPadding title="Settings" style={{ width: 36, height: 36, flexShrink: 0 }}>
@@ -459,6 +498,175 @@ const TopBar = memo(function TopBar({
     </div>
   );
 });
+
+function SettingsPanel({
+  isShuffled,
+  onShuffle,
+  onReset,
+  rotateSpeed,
+  onRotateSpeed,
+  rotateDir,
+  onRotateDir,
+  showAtmosphere,
+  onShowAtmosphere,
+  globeDay,
+  onGlobeDay,
+  arcHeight,
+  onArcHeight,
+  arcAnimateTime,
+  onArcAnimateTime,
+  arcStroke,
+  onArcStroke,
+}: {
+  isShuffled: boolean;
+  onShuffle: () => void;
+  onReset: () => void;
+  rotateSpeed: number;
+  onRotateSpeed: (v: number) => void;
+  rotateDir: 1 | -1;
+  onRotateDir: (v: 1 | -1) => void;
+  showAtmosphere: boolean;
+  onShowAtmosphere: (v: boolean) => void;
+  globeDay: boolean;
+  onGlobeDay: (v: boolean) => void;
+  arcHeight: number;
+  onArcHeight: (v: number) => void;
+  arcAnimateTime: number;
+  onArcAnimateTime: (v: number) => void;
+  arcStroke: number;
+  onArcStroke: (v: number) => void;
+}) {
+  return (
+    <div style={{ width: 240, padding: "8px 0", fontSize: 13 }}>
+      {/* Globe section */}
+      <div style={{ padding: "6px 14px 4px", color: "var(--bfc-base-c-2)", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+        Globe
+      </div>
+      <div style={{ padding: "4px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <Switch
+          label="Atmosphere"
+          checked={showAtmosphere}
+          onChange={(e) => onShowAtmosphere(e.target.checked)}
+        />
+        <Switch
+          label="Day mode"
+          checked={globeDay}
+          onChange={(e) => onGlobeDay(e.target.checked)}
+        />
+        <SettingSlider
+          label="Rotation speed"
+          value={rotateSpeed}
+          min={0.1}
+          max={3}
+          step={0.1}
+          display={`${rotateSpeed.toFixed(1)}×`}
+          onChange={onRotateSpeed}
+        />
+        <div>
+          <div style={{ marginBottom: 6, color: "var(--bfc-base-c)", fontSize: 13 }}>Rotation direction</div>
+          <Button.Group>
+            <Button small active={rotateDir === 1} onClick={() => onRotateDir(1)}>← West</Button>
+            <Button small active={rotateDir === -1} onClick={() => onRotateDir(-1)}>East →</Button>
+          </Button.Group>
+        </div>
+      </div>
+
+      <div style={{ margin: "8px 14px", borderTop: "1px solid var(--bfc-base-dimmed)" }} />
+
+      {/* Arcs section */}
+      <div style={{ padding: "6px 14px 4px", color: "var(--bfc-base-c-2)", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+        Arcs
+      </div>
+      <div style={{ padding: "4px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <SettingSlider
+          label="Height"
+          value={arcHeight}
+          min={0.05}
+          max={0.8}
+          step={0.05}
+          display={arcHeight.toFixed(2)}
+          onChange={onArcHeight}
+        />
+        <SettingSlider
+          label="Speed"
+          value={arcAnimateTime}
+          min={1000}
+          max={12000}
+          step={500}
+          display={arcAnimateTime <= 2000 ? "fast" : arcAnimateTime >= 10000 ? "slow" : `${(arcAnimateTime / 1000).toFixed(1)}s`}
+          onChange={onArcAnimateTime}
+        />
+        <SettingSlider
+          label="Thickness"
+          value={arcStroke}
+          min={0.2}
+          max={2}
+          step={0.1}
+          display={arcStroke.toFixed(1)}
+          onChange={onArcStroke}
+        />
+      </div>
+
+      <div style={{ margin: "8px 14px", borderTop: "1px solid var(--bfc-base-dimmed)" }} />
+
+      {/* Data section */}
+      <div style={{ padding: "6px 14px 4px", color: "var(--bfc-base-c-2)", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+        Mock data
+      </div>
+      <button
+        onClick={onShuffle}
+        style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 14px", background: "none", border: "none", color: "var(--bfc-base-c)", fontSize: 13, cursor: "pointer", textAlign: "left" }}
+      >
+        <FontAwesomeIcon icon={faShuffle} style={{ color: "var(--bfc-base-c-2)", width: 14 }} />
+        Shuffle data
+      </button>
+      {isShuffled && (
+        <button
+          onClick={onReset}
+          style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 14px", background: "none", border: "none", color: "var(--bfc-base-c-2)", fontSize: 13, cursor: "pointer", textAlign: "left" }}
+        >
+          Reset to defaults
+        </button>
+      )}
+    </div>
+  );
+}
+
+function SettingSlider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  display,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  display: string;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, color: "var(--bfc-base-c)", fontSize: 13 }}>
+        <span>{label}</span>
+        <span style={{ color: "var(--bfc-base-c-2)", fontVariantNumeric: "tabular-nums" }}>{display}</span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(parseFloat(e.target.value))}
+        style={{ width: "100%", accentColor: "var(--bfc-theme)", cursor: "pointer" }}
+      />
+    </div>
+  );
+}
 
 const SpinControl = memo(function SpinControl({
   spinning,
