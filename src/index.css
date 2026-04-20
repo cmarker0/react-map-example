@@ -32,4 +32,9 @@
     background: var(--bfc-base);
     font-family: system-ui, -apple-system, sans-serif;
   }
+
+  /* Remove react-globe.gl's default tooltip wrapper padding */
+  .scene-tooltip {
+    padding: 0 !important;
+  }
 }
