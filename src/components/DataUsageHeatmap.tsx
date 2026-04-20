@@ -241,7 +241,7 @@ export function DataUsageHeatmap() {
   const [arcOverrides, setArcOverrides] = useState<CallArc[] | null>(null);
 
   // Globe settings
-  const [rotateSpeed, setRotateSpeed] = useState(1.0);
+  const [rotateSpeed, setRotateSpeed] = useState(0.5);
   const [rotateDir, setRotateDir] = useState<1 | -1>(-1);
   const [showAtmosphere, setShowAtmosphere] = useState(true);
   const [globeDay, setGlobeDay] = useState(false);
