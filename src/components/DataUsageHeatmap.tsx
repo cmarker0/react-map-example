@@ -5,7 +5,6 @@ import { feature } from "topojson-client";
 import type { Topology } from "topojson-specification";
 import { scaleLinear } from "d3-scale";
 import Button from "@intility/bifrost-react/Button";
-import Checkbox from "@intility/bifrost-react/Checkbox";
 import Dropdown from "@intility/bifrost-react/Dropdown";
 import Switch from "@intility/bifrost-react/Switch";
 import useBreakpoint from "@intility/bifrost-react/hooks/useBreakpoint";
@@ -879,16 +878,77 @@ function CountryFilterDropdown({
       strategy="fixed"
       noPadding
       content={
-        <div style={{ width: 180, maxHeight: 260, overflowY: "auto", padding: "4px 0" }}>
-          {options.map(({ iso3, name }) => (
-            <div key={iso3} style={{ padding: "4px 12px" }}>
-              <Checkbox
-                label={name}
-                checked={selected.has(iso3)}
-                onChange={() => toggle(iso3)}
-              />
-            </div>
-          ))}
+        <div style={{ width: 200 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "8px 12px 6px",
+              borderBottom: "1px solid var(--bfc-base-dimmed)",
+            }}
+          >
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--bfc-base-c-2)" }}>
+              {label}
+            </span>
+            <button
+              onClick={() => onChange(new Set())}
+              disabled={selected.size === 0}
+              style={{
+                fontSize: 12,
+                color: selected.size > 0 ? "var(--bfc-theme)" : "var(--bfc-base-c-3)",
+                background: "none",
+                border: "none",
+                cursor: selected.size > 0 ? "pointer" : "default",
+                padding: 0,
+              }}
+            >
+              Reset
+            </button>
+          </div>
+          <div style={{ maxHeight: 240, overflowY: "auto", padding: "4px 0" }}>
+            {options.map(({ iso3, name }) => {
+              const checked = selected.has(iso3);
+              return (
+                <div
+                  key={iso3}
+                  onClick={() => toggle(iso3)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "5px 12px",
+                    cursor: "pointer",
+                    color: "var(--bfc-base-c)",
+                    fontSize: 13,
+                    userSelect: "none",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: 3,
+                      border: `2px solid ${checked ? "var(--bfc-theme)" : "var(--bfc-base-c-3)"}`,
+                      background: checked ? "var(--bfc-theme)" : "transparent",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                      transition: "all 0.12s",
+                    }}
+                  >
+                    {checked && (
+                      <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                        <path d="M1 4L3.5 6.5L9 1" stroke="#000" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </div>
+                  {name}
+                </div>
+              );
+            })}
+          </div>
         </div>
       }
     >
