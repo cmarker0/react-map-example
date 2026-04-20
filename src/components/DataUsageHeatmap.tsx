@@ -7,6 +7,7 @@ import { scaleLinear } from "d3-scale";
 import Button from "@intility/bifrost-react/Button";
 import Dropdown from "@intility/bifrost-react/Dropdown";
 import Switch from "@intility/bifrost-react/Switch";
+import useBreakpoint from "@intility/bifrost-react/hooks/useBreakpoint";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faGear, faPause, faPlay, faShuffle } from "@fortawesome/free-solid-svg-icons";
 
@@ -458,6 +459,70 @@ const TopBar = memo(function TopBar({
   arcStroke: number;
   onArcStroke: (v: number) => void;
 }) {
+  const isMobile = useBreakpoint(null, "small");
+
+  const settingsDropdown = (
+    <Dropdown
+      placement="bottom-end"
+      noPadding
+      strategy="fixed"
+      content={
+        <SettingsPanel
+          isShuffled={isShuffled}
+          onShuffle={onShuffle}
+          onReset={onReset}
+          rotateSpeed={rotateSpeed}
+          onRotateSpeed={onRotateSpeed}
+          rotateDir={rotateDir}
+          onRotateDir={onRotateDir}
+          showAtmosphere={showAtmosphere}
+          onShowAtmosphere={onShowAtmosphere}
+          globeDay={globeDay}
+          onGlobeDay={onGlobeDay}
+          arcHeight={arcHeight}
+          onArcHeight={onArcHeight}
+          arcAnimateTime={arcAnimateTime}
+          onArcAnimateTime={onArcAnimateTime}
+          arcStroke={arcStroke}
+          onArcStroke={onArcStroke}
+        />
+      }
+    >
+      <Button small pill noPadding title="Settings" style={{ width: 36, height: 36, flexShrink: 0 }}>
+        <FontAwesomeIcon icon={faGear} />
+      </Button>
+    </Dropdown>
+  );
+
+  const viewButtons = (
+    <Button.Group style={isMobile ? { flex: 1, minWidth: 0 } : undefined}>
+      <Button
+        active={view === "data"}
+        onClick={() => onViewChange("data")}
+        small
+        style={isMobile ? { flex: 1, whiteSpace: "nowrap" } : { whiteSpace: "nowrap" }}
+      >
+        Data Usage
+      </Button>
+      <Button
+        active={view === "calls"}
+        onClick={() => onViewChange("calls")}
+        small
+        style={{ whiteSpace: "nowrap" }}
+      >
+        Calls / SMS / MMS
+      </Button>
+    </Button.Group>
+  );
+
+  const norwaySwitch = view === "data" && (
+    <Switch
+      label="Include Norway"
+      checked={includeNorway}
+      onChange={(e) => onNorwayChange(e.target.checked)}
+    />
+  );
+
   return (
     <div
       style={{
@@ -468,72 +533,28 @@ const TopBar = memo(function TopBar({
         zIndex: 10,
         padding: "12px 16px",
         paddingTop: "max(12px, env(safe-area-inset-top))",
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
         background: "linear-gradient(to bottom, rgba(6,21,39,0.9) 60%, transparent)",
       }}
     >
-      {/* Row 1: view switcher + settings */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <Button.Group style={{ flex: 1, minWidth: 0 }}>
-          <Button
-            active={view === "data"}
-            onClick={() => onViewChange("data")}
-            small
-            style={{ flex: 1, whiteSpace: "nowrap" }}
-          >
-            Data Usage
-          </Button>
-          <Button
-            active={view === "calls"}
-            onClick={() => onViewChange("calls")}
-            small
-            style={{ flex: 1, whiteSpace: "nowrap" }}
-          >
-            Calls / SMS / MMS
-          </Button>
-        </Button.Group>
-
-        <Dropdown
-          placement="bottom-end"
-          noPadding
-          strategy="fixed"
-          content={
-            <SettingsPanel
-              isShuffled={isShuffled}
-              onShuffle={onShuffle}
-              onReset={onReset}
-              rotateSpeed={rotateSpeed}
-              onRotateSpeed={onRotateSpeed}
-              rotateDir={rotateDir}
-              onRotateDir={onRotateDir}
-              showAtmosphere={showAtmosphere}
-              onShowAtmosphere={onShowAtmosphere}
-              globeDay={globeDay}
-              onGlobeDay={onGlobeDay}
-              arcHeight={arcHeight}
-              onArcHeight={onArcHeight}
-              arcAnimateTime={arcAnimateTime}
-              onArcAnimateTime={onArcAnimateTime}
-              arcStroke={arcStroke}
-              onArcStroke={onArcStroke}
-            />
-          }
-        >
-          <Button small pill noPadding title="Settings" style={{ width: 36, height: 36, flexShrink: 0 }}>
-            <FontAwesomeIcon icon={faGear} />
-          </Button>
-        </Dropdown>
-      </div>
-
-      {/* Row 2: Norway toggle (data view only) */}
-      {view === "data" && (
-        <Switch
-          label="Include Norway"
-          checked={includeNorway}
-          onChange={(e) => onNorwayChange(e.target.checked)}
-        />
+      {isMobile ? (
+        /* Mobile: button group + gear on row 1, switch on row 2 */
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {viewButtons}
+            {settingsDropdown}
+          </div>
+          {norwaySwitch}
+        </div>
+      ) : (
+        /* Desktop: everything on one row, controls centred, gear at right */
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ flex: 1 }} />
+          {viewButtons}
+          {norwaySwitch}
+          <div style={{ flex: 1, display: "flex", justifyContent: "flex-end" }}>
+            {settingsDropdown}
+          </div>
+        </div>
       )}
     </div>
   );
