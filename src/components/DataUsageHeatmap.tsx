@@ -188,6 +188,26 @@ function getAltitude(feat: object): number {
   return featIso3(feat) ? 0.014 : 0.006;
 }
 
+/** Builds the shared globe tooltip HTML string. */
+function tooltipHtml(name: string, rows: string): string {
+  return `<div style="background:var(--bfc-base-2);color:var(--bfc-base-c);padding:10px 14px;border-radius:6px;border:1px solid var(--bfc-base-dimmed);pointer-events:none;min-width:160px">
+    <div style="font-size:15px;font-weight:600;margin-bottom:8px">${name}</div>
+    ${rows}
+  </div>`;
+}
+
+function tooltipRow(swatch: string, label: string, value: string): string {
+  return `<div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+    ${swatch}
+    <span style="flex:1;color:var(--bfc-base-c-2);font-size:12px">${label}</span>
+    <span style="color:var(--bfc-base-c);font-size:12px">${value}</span>
+  </div>`;
+}
+
+function colorSwatch(color: string): string {
+  return `<div style="width:22px;height:3px;background:${color};border-radius:2px;flex-shrink:0"></div>`;
+}
+
 function getCallArcColor(d: object): [string, string] {
   return ARC_COLORS[(d as CallArc).type];
 }
@@ -336,14 +356,16 @@ export function DataUsageHeatmap() {
       const data = iso3 ? dataUsage[iso3] : undefined;
       if (!data || !iso3) return "";
 
-      const wrap = (inner: string) =>
-        `<div style="background:var(--bfc-base-2);color:var(--bfc-base-c);padding:10px 14px;border-radius:6px;font-size:12px;border:1px solid var(--bfc-base-dimmed);pointer-events:none">${inner}</div>`;
-
       if (view === "data") {
-        return wrap(`<strong style="font-size:13px">${data.name}</strong><br/><span style="color:var(--bfc-base-c-2)">${data.usage} GB / user / month</span>`);
+        const usageRow = tooltipRow(
+          colorSwatch(SUCCESS),
+          "GB / user / month",
+          `${data.usage}`,
+        );
+        return tooltipHtml(data.name, usageRow);
       }
 
-      // Count in/out arcs per type for this country
+      // Calls view — count in/out arcs per type
       const coords = COORDS[iso3];
       if (!coords) return "";
       const [lat, lng] = coords;
@@ -372,16 +394,11 @@ export function DataUsageHeatmap() {
         .filter(({ type }) => counts[type].in + counts[type].out > 0)
         .map(({ type, label, color }) => {
           const { out, in: inc } = counts[type];
-          return `<div style="display:flex;align-items:center;gap:8px;margin-top:6px">
-            <div style="width:22px;height:3px;background:${color};border-radius:2px;flex-shrink:0"></div>
-            <span style="flex:1;color:var(--bfc-base-c-2)">${label}</span>
-            <span style="color:var(--bfc-base-c);margin-left:6px">↑&thinsp;${out}</span>
-            <span style="color:var(--bfc-base-c)">↓&thinsp;${inc}</span>
-          </div>`;
+          return tooltipRow(colorSwatch(color), label, `↑&thinsp;${out}&emsp;↓&thinsp;${inc}`);
         })
         .join("");
 
-      return wrap(`<div style="font-weight:600;font-size:13px;margin-bottom:2px">${data.name}</div>${rows}`);
+      return tooltipHtml(data.name, rows);
     },
     [view, dataUsage, activeArcs],
   );
