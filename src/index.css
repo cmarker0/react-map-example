@@ -1,23 +1,35 @@
+/* Establish layer order: reset → bifrost → app (later = higher priority) */
+@layer reset, bifrost, app;
+
 @import "@intility/bifrost-react/dist/font-imports.css";
 @import "@intility/bifrost-react/dist/bifrost-bundle.css" layer(bifrost);
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+@layer reset {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 }
 
-html,
-body,
-#root {
-  width: 100%;
-  height: 100%;
-  background: var(--bfc-base);
-  overflow: hidden;
-}
+@layer app {
+  html,
+  body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
 
-body {
-  font-family: system-ui, -apple-system, sans-serif;
+  #root {
+    width: 100%;
+    height: 100%;
+    /* no overflow: hidden — avoids clipping Bifrost component borders/shadows */
+  }
+
+  body {
+    background: var(--bfc-base);
+    font-family: system-ui, -apple-system, sans-serif;
+  }
 }

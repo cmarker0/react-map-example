@@ -323,7 +323,7 @@ export function DataUsageHeatmap() {
         arcEndLat={getArcEndLat}
         arcEndLng={getArcEndLng}
         arcColor={getCallArcColor}
-        arcAltitude={0.12}
+        arcAltitude={0.35}
         arcDashLength={0.3}
         arcDashGap={0.15}
         arcDashAnimateTime={5000}
@@ -471,7 +471,7 @@ const SpinControl = memo(function SpinControl({
     <div
       style={{
         position: "absolute",
-        bottom: "max(24px, calc(24px + env(safe-area-inset-bottom)))",
+        bottom: "calc(100px + env(safe-area-inset-bottom, 0px))",
         right: 16,
         zIndex: 10,
       }}
@@ -506,7 +506,7 @@ function DataLegend({
     <div
       style={{
         position: "absolute",
-        bottom: "max(24px, calc(24px + env(safe-area-inset-bottom)))",
+        bottom: "calc(100px + env(safe-area-inset-bottom, 0px))",
         left: 16,
         background: "var(--bfc-base-2)",
         borderRadius: 8,
@@ -559,7 +559,7 @@ function CallsLegend({
     <div
       style={{
         position: "absolute",
-        bottom: "max(24px, calc(24px + env(safe-area-inset-bottom)))",
+        bottom: "calc(100px + env(safe-area-inset-bottom, 0px))",
         left: 16,
         background: "var(--bfc-base-2)",
         borderRadius: 8,
