@@ -191,6 +191,14 @@ function getCallArcColor(d: object): [string, string] {
   return ARC_COLORS[(d as CallArc).type];
 }
 
+function arcAngularDistance(arc: CallArc): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const φ1 = toRad(arc.startLat), φ2 = toRad(arc.endLat);
+  const Δλ = toRad(arc.endLng - arc.startLng);
+  const a = Math.sin((φ2 - φ1) / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+  return 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); // 0–π radians
+}
+
 const getSideColor = () => BG_COLOR;
 const getStrokeColor = () => STROKE_COLOR;
 const getArcStartLat = (d: object) => (d as CallArc).startLat;
@@ -311,6 +319,16 @@ export function DataUsageHeatmap() {
     [view, includeNorway, dataUsage, colorScale],
   );
 
+  const getArcAltitude = useCallback(
+    (d: object) => {
+      const arc = d as CallArc;
+      const dist = arcAngularDistance(arc); // 0–π
+      const normalized = dist / Math.PI;    // 0–1
+      return arcHeight * 0.1 + (arcHeight - arcHeight * 0.1) * normalized;
+    },
+    [arcHeight],
+  );
+
   const getLabel = useCallback(
     (feat: object) => {
       const iso3 = featIso3(feat);
@@ -378,7 +396,7 @@ export function DataUsageHeatmap() {
         arcEndLat={getArcEndLat}
         arcEndLng={getArcEndLng}
         arcColor={getCallArcColor}
-        arcAltitude={arcHeight}
+        arcAltitude={getArcAltitude}
         arcDashLength={0.3}
         arcDashGap={0.15}
         arcDashAnimateTime={arcAnimateTime}
