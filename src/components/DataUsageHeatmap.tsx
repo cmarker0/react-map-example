@@ -5,6 +5,7 @@ import { feature } from "topojson-client";
 import type { Topology } from "topojson-specification";
 import { scaleLinear } from "d3-scale";
 import Button from "@intility/bifrost-react/Button";
+import Checkbox from "@intility/bifrost-react/Checkbox";
 import Dropdown from "@intility/bifrost-react/Dropdown";
 import Switch from "@intility/bifrost-react/Switch";
 import useBreakpoint from "@intility/bifrost-react/hooks/useBreakpoint";
@@ -237,6 +238,8 @@ export function DataUsageHeatmap() {
   const [includeNorway, setIncludeNorway] = useState(true);
   const [spinning, setSpinning] = useState(true);
   const [hiddenTypes, setHiddenTypes] = useState<Set<CallArc["type"]>>(new Set());
+  const [filterFrom, setFilterFrom] = useState<Set<string>>(new Set());
+  const [filterTo, setFilterTo] = useState<Set<string>>(new Set());
   const [usageOverrides, setUsageOverrides] = useState<Record<string, number>>({});
   const [arcOverrides, setArcOverrides] = useState<CallArc[] | null>(null);
 
@@ -324,10 +327,34 @@ export function DataUsageHeatmap() {
 
   const activeArcs = arcOverrides ?? CALL_ARCS;
 
-  const visibleArcs = useMemo(
-    () => (view === "calls" ? activeArcs.filter((a) => !hiddenTypes.has(a.type)) : []),
-    [view, hiddenTypes, activeArcs],
+  // Sorted country list for filter dropdowns
+  const countryOptions = useMemo(
+    () =>
+      Object.entries(BASE_USAGE)
+        .map(([iso3, { name }]) => ({ iso3, name }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [],
   );
+
+  const visibleArcs = useMemo(() => {
+    if (view !== "calls") return [];
+    return activeArcs.filter((a) => {
+      if (hiddenTypes.has(a.type)) return false;
+      if (filterFrom.size > 0) {
+        const iso3 = Object.keys(COORDS).find(
+          (k) => COORDS[k]![0] === a.startLat && COORDS[k]![1] === a.startLng,
+        );
+        if (!iso3 || !filterFrom.has(iso3)) return false;
+      }
+      if (filterTo.size > 0) {
+        const iso3 = Object.keys(COORDS).find(
+          (k) => COORDS[k]![0] === a.endLat && COORDS[k]![1] === a.endLng,
+        );
+        if (!iso3 || !filterTo.has(iso3)) return false;
+      }
+      return true;
+    });
+  }, [view, hiddenTypes, activeArcs, filterFrom, filterTo]);
 
   const getCapColor = useCallback(
     (feat: object) => {
@@ -429,6 +456,11 @@ export function DataUsageHeatmap() {
         onArcAnimateTime={setArcAnimateTime}
         arcStroke={arcStroke}
         onArcStroke={setArcStroke}
+        countryOptions={countryOptions}
+        filterFrom={filterFrom}
+        onFilterFrom={setFilterFrom}
+        filterTo={filterTo}
+        onFilterTo={setFilterTo}
       />
       <SpinControl spinning={spinning} onToggle={toggleSpin} />
 
@@ -495,6 +527,11 @@ const TopBar = memo(function TopBar({
   onArcAnimateTime,
   arcStroke,
   onArcStroke,
+  countryOptions,
+  filterFrom,
+  onFilterFrom,
+  filterTo,
+  onFilterTo,
 }: {
   view: ViewType;
   onViewChange: (v: ViewType) => void;
@@ -517,6 +554,11 @@ const TopBar = memo(function TopBar({
   onArcAnimateTime: (v: number) => void;
   arcStroke: number;
   onArcStroke: (v: number) => void;
+  countryOptions: { iso3: string; name: string }[];
+  filterFrom: Set<string>;
+  onFilterFrom: (v: Set<string>) => void;
+  filterTo: Set<string>;
+  onFilterTo: (v: Set<string>) => void;
 }) {
   const isMobile = useBreakpoint(null, "medium");
 
@@ -582,6 +624,23 @@ const TopBar = memo(function TopBar({
     />
   );
 
+  const arcFilters = view === "calls" && (
+    <>
+      <CountryFilterDropdown
+        label="From"
+        options={countryOptions}
+        selected={filterFrom}
+        onChange={onFilterFrom}
+      />
+      <CountryFilterDropdown
+        label="To"
+        options={countryOptions}
+        selected={filterTo}
+        onChange={onFilterTo}
+      />
+    </>
+  );
+
   return (
     <div
       style={{
@@ -596,13 +655,18 @@ const TopBar = memo(function TopBar({
       }}
     >
       {isMobile ? (
-        /* Mobile: button group + gear on row 1, switch on row 2 */
+        /* Mobile: button group + gear on row 1, secondary controls on row 2 */
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             {viewButtons}
             {settingsDropdown}
           </div>
           {norwaySwitch}
+          {view === "calls" && (
+            <div style={{ display: "flex", gap: 8 }}>
+              {arcFilters}
+            </div>
+          )}
         </div>
       ) : (
         /* Desktop: everything on one row, controls centred, gear at right */
@@ -610,6 +674,7 @@ const TopBar = memo(function TopBar({
           <div style={{ flex: 1 }} />
           {viewButtons}
           {norwaySwitch}
+          {arcFilters}
           <div style={{ flex: 1, display: "flex", justifyContent: "flex-end" }}>
             {settingsDropdown}
           </div>
@@ -785,6 +850,52 @@ function SettingSlider({
         style={{ width: "100%", accentColor: "var(--bfc-theme)", cursor: "pointer" }}
       />
     </div>
+  );
+}
+
+function CountryFilterDropdown({
+  label,
+  options,
+  selected,
+  onChange,
+}: {
+  label: string;
+  options: { iso3: string; name: string }[];
+  selected: Set<string>;
+  onChange: (v: Set<string>) => void;
+}) {
+  function toggle(iso3: string) {
+    const next = new Set(selected);
+    if (next.has(iso3)) next.delete(iso3);
+    else next.add(iso3);
+    onChange(next);
+  }
+
+  const triggerLabel = selected.size > 0 ? `${label} · ${selected.size}` : label;
+
+  return (
+    <Dropdown
+      placement="bottom-start"
+      strategy="fixed"
+      noPadding
+      content={
+        <div style={{ width: 180, maxHeight: 260, overflowY: "auto", padding: "4px 0" }}>
+          {options.map(({ iso3, name }) => (
+            <div key={iso3} style={{ padding: "4px 12px" }}>
+              <Checkbox
+                label={name}
+                checked={selected.has(iso3)}
+                onChange={() => toggle(iso3)}
+              />
+            </div>
+          ))}
+        </div>
+      }
+    >
+      <Button small pill style={{ whiteSpace: "nowrap" }}>
+        {triggerLabel}
+      </Button>
+    </Dropdown>
   );
 }
 
