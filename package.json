@@ -15,8 +15,8 @@
     "@intility/bifrost-react": "^6.15.3",
     "d3-scale": "^4.0.2",
     "prop-types": "^15.8.1",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
     "react-globe.gl": "^2.37.1",
     "react-router": "^7.13.1",
     "topojson-client": "^3.1.0"
