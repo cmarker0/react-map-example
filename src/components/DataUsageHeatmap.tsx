@@ -227,7 +227,14 @@ const getArcStartLng = (d: object) => (d as CallArc).startLng;
 const getArcEndLat = (d: object) => (d as CallArc).endLat;
 const getArcEndLng = (d: object) => (d as CallArc).endLng;
 
-type ViewType = "data" | "calls";
+type ViewType = "data" | "calls" | "atmosphere";
+
+// Deterministic scatter offsets for atmosphere heatmap (30 points on concentric rings)
+const SCATTER_OFFSETS: { dx: number; dy: number }[] = Array.from({ length: 30 }, (_, i) => {
+  const angle = (i / 30) * 2 * Math.PI;
+  const r = 1.0 + (i % 5) * 0.6;
+  return { dx: Math.cos(angle) * r, dy: Math.sin(angle) * r };
+});
 
 export function DataUsageHeatmap() {
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
@@ -355,9 +362,32 @@ export function DataUsageHeatmap() {
     });
   }, [view, hiddenTypes, activeArcs, filterFrom, filterTo]);
 
+  const atmospherePoints = useMemo(() => {
+    const maxUsage = Math.max(...Object.values(dataUsage).map((d) => d.usage));
+    return Object.entries(dataUsage).flatMap(([iso3, { usage }]) => {
+      const coords = COORDS[iso3];
+      if (!coords) return [];
+      const [lat, lng] = coords;
+      const weight = usage / maxUsage;
+      return SCATTER_OFFSETS.map(({ dx, dy }) => ({ lat: lat + dy, lng: lng + dx, weight }));
+    });
+  }, [dataUsage]);
+
+  const heatmapsData = useMemo(() => [{ id: "atm", points: atmospherePoints }], [atmospherePoints]);
+
+  const heatmapColorFn = useCallback((t: number) => {
+    if (t < 0.05) return "rgba(0,0,0,0)";
+    const opacity = Math.pow(t, 1.1) * 0.88;
+    // Interpolate from dim blue-green to bright teal (#0cf2d7)
+    const r = Math.round(8 + (1 - t) * 30);
+    const g = Math.round(180 + t * 62);
+    const b = Math.round(160 + t * 55);
+    return `rgba(${r},${g},${b},${opacity})`;
+  }, []);
+
   const getCapColor = useCallback(
     (feat: object) => {
-      if (view === "calls") return GREY;
+      if (view === "calls" || view === "atmosphere") return GREY;
       const iso3 = featIso3(feat);
       if (iso3 === "NOR" && !includeNorway) return GREY;
       const data = iso3 ? dataUsage[iso3] : undefined;
@@ -492,13 +522,25 @@ export function DataUsageHeatmap() {
         arcDashGap={0.15}
         arcDashAnimateTime={arcAnimateTime}
         arcStroke={arcStroke}
+        heatmapsData={view === "atmosphere" ? heatmapsData : []}
+        heatmapPoints={(d: object) => (d as { points: object[] }).points}
+        heatmapPointLat={(p: object) => (p as { lat: number }).lat}
+        heatmapPointLng={(p: object) => (p as { lng: number }).lng}
+        heatmapPointWeight={(p: object) => (p as { weight: number }).weight}
+        heatmapBandwidth={0.9}
+        heatmapColorFn={heatmapColorFn}
+        heatmapColorSaturation={1.8}
+        heatmapBaseAltitude={0.01}
+        heatmapTopAltitude={0.45}
         onGlobeReady={handleGlobeReady}
       />
 
       {view === "data" ? (
         <DataLegend colorScale={colorScale} dataUsage={dataUsage} />
-      ) : (
+      ) : view === "calls" ? (
         <CallsLegend hiddenTypes={hiddenTypes} onToggle={toggleType} />
+      ) : (
+        <AtmosphereLegend />
       )}
     </div>
   );
@@ -611,6 +653,14 @@ const TopBar = memo(function TopBar({
         style={{ whiteSpace: "nowrap" }}
       >
         Calls / SMS / MMS
+      </Button>
+      <Button
+        active={view === "atmosphere"}
+        onClick={() => onViewChange("atmosphere")}
+        small
+        style={{ whiteSpace: "nowrap" }}
+      >
+        Atmosphere
       </Button>
     </Button.Group>
   );
@@ -1103,6 +1153,45 @@ function CallsLegend({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function AtmosphereLegend() {
+  const isMobile = useBreakpoint(null, "medium");
+  const gradientStops = ["rgba(0,0,0,0)", "rgba(20,190,175,0.4)", "rgba(8,215,200,0.88)"];
+  return (
+    <div
+      style={{
+        position: "absolute",
+        bottom: isMobile ? "calc(100px + env(safe-area-inset-bottom, 0px))" : 32,
+        left: isMobile ? 16 : 32,
+        background: "var(--bfc-base-2)",
+        borderRadius: 8,
+        padding: "12px 16px",
+        backdropFilter: "blur(4px)",
+        border: "1px solid var(--bfc-base-dimmed)",
+        color: "var(--bfc-base-c)",
+        fontSize: 12,
+      }}
+    >
+      <div style={{ marginBottom: 4, fontWeight: 600, letterSpacing: "0.04em" }}>Data Atmosphere</div>
+      <div style={{ marginBottom: 8, color: "var(--bfc-base-c-2)", fontSize: 11 }}>
+        Cloud height &amp; glow = GB / user / month
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ color: "var(--bfc-base-c-2)" }}>Low</span>
+        <div
+          style={{
+            width: 100,
+            height: 10,
+            borderRadius: 5,
+            background: `linear-gradient(to right, ${gradientStops.join(", ")})`,
+            border: "1px solid var(--bfc-base-dimmed)",
+          }}
+        />
+        <span style={{ color: "var(--bfc-base-c-2)" }}>High</span>
+      </div>
     </div>
   );
 }
